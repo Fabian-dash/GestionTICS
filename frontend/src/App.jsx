@@ -495,7 +495,7 @@ const Dashboard = () => {
           <main className="app-content">
             {userTipo === 'instructor' && (
               <>
-                {vistaActiva === 'crear'      && <CrearOferta />}
+                {vistaActiva === 'crear'      && <CrearOferta onOfertaCreada={() => setVistaActiva('links')} />}
                 {vistaActiva === 'misofertas' && <MisOfertas />}
                 {vistaActiva === 'solicitar'  && <SolicitarOferta />}
                 {vistaActiva === 'links'      && <LinksInscripcion />}
