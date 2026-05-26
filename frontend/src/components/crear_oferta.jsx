@@ -129,7 +129,7 @@ const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, req
 };
 
 // ===== COMPONENTE PRINCIPAL =====
-const CrearOferta = () => {
+const CrearOferta = ({ onOfertaCreada }) => {
   const [modo, setModo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -383,8 +383,13 @@ const CrearOferta = () => {
       const response = await api.post('/ofertas', formDataToSend, { headers: { 'Content-Type': 'multipart/form-data' } });
 
       Swal.close();
+      const linkInscripciones = response.data.data?.link_inscripciones;
+      if (linkInscripciones) {
+        await Swal.fire({ icon: 'success', title: '¡Oferta creada!', text: 'Redirigiendo al panel de links de inscripción...', timer: 1500, showConfirmButton: false });
+        if (typeof onOfertaCreada === 'function') onOfertaCreada();
+        return;
+      }
       Swal.fire({ icon: 'success', title: '¡Oferta creada!', text: 'La oferta se ha guardado exitosamente', timer: 2000, showConfirmButton: false });
-      setTimeout(() => { window.location.reload(); }, 2000);
 
     } catch (error) {
       Swal.close();
@@ -405,7 +410,7 @@ const CrearOferta = () => {
     <div style={styles.container}>
       <div style={styles.header}>
         <h2 style={styles.title}>
-          {modo === 'regular' ? '🟢 Crear Oferta Regular' : '🟠 Crear Oferta Campesena'}
+          {modo === 'regular' ? ' Crear Oferta Regular' : 'Crear Oferta Campesena'}
         </h2>
         <button onClick={() => setModo(null)} style={styles.cambiarModoButton}>← Volver</button>
       </div>
