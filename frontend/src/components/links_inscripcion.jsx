@@ -93,14 +93,6 @@ const LinksInscripcion = () => {
               <p style={styles.subtitle}>Gestiona y comparte tus ofertas de formación</p>
             </div>
           </div>
-          {usuario?.nombreUsuario && (
-            <div style={styles.userBadge}>
-              <div style={styles.userAvatar}>
-                {usuario.nombreUsuario.charAt(0).toUpperCase()}
-              </div>
-              <span style={styles.userName}>{usuario.nombreUsuario}</span>
-            </div>
-          )}
         </div>
 
         {/* Stats bar */}
@@ -365,13 +357,13 @@ const styles = {
     width: '46px',
     height: '46px',
     borderRadius: '12px',
-    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     color: 'white',
     flexShrink: 0,
-    boxShadow: '0 4px 12px rgba(59,130,246,0.35)',
+    boxShadow: '0 4px 12px rgba(16,184,129,0.35)',
   },
   title: {
     margin: 0,
@@ -399,7 +391,7 @@ const styles = {
     width: '28px',
     height: '28px',
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+    background: 'linear-gradient(135deg, #10b981, #047857)',
     color: 'white',
     display: 'flex',
     alignItems: 'center',
@@ -434,7 +426,7 @@ const styles = {
   statNumber: {
     fontSize: '24px',
     fontWeight: '700',
-    color: '#1e40af',
+    color: '#047857',
     lineHeight: 1,
   },
   statLabel: {
@@ -475,7 +467,7 @@ const styles = {
   },
   cardAccent: {
     height: '4px',
-    background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)',
+    background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)',
   },
   cardHeader: {
     padding: '16px 18px 12px',
@@ -495,14 +487,14 @@ const styles = {
     flex: 1,
   },
   codigoBadge: {
-    background: '#eff6ff',
-    color: '#2563eb',
+    background: '#ecfdf5',
+    color: '#047857',
     fontSize: '11px',
     fontWeight: '600',
     padding: '3px 8px',
     borderRadius: '6px',
     whiteSpace: 'nowrap',
-    border: '1px solid #bfdbfe',
+    border: '1px solid #d1fae5',
     fontFamily: "'DM Mono', monospace",
     letterSpacing: '0.3px',
     flexShrink: 0,
@@ -618,11 +610,11 @@ const styles = {
     whiteSpace: 'nowrap',
   },
   btnPrimary: {
-    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+    background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
     color: 'white',
     flex: 1,
     justifyContent: 'center',
-    boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+    boxShadow: '0 2px 8px rgba(16,184,129,0.3)',
   },
   btnCopied: {
     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
@@ -683,7 +675,7 @@ const styles = {
     width: '36px',
     height: '36px',
     border: '3px solid #e2e8f0',
-    borderTop: '3px solid #3b82f6',
+    borderTop: '3px solid #10b981',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
   },

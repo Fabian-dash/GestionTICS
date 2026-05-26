@@ -98,7 +98,6 @@ const empresaSchema = new mongoose.Schema({
 });
 
 // Índices para búsquedas rápidas
-empresaSchema.index({ nit: 1 });
 empresaSchema.index({ nombre: 1 });
 empresaSchema.index({ 'contacto.correo': 1 });
 
