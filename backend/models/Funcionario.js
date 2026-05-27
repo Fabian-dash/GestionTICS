@@ -24,6 +24,10 @@ const funcionarioSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  aprobado: {
+  type: Boolean,
+  default: false,
+  },
   password: {
     type: String,
     required: true
