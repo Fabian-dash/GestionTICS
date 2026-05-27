@@ -263,22 +263,36 @@ const generarFichaCaracterizacion = async (oferta) => {
 
       // =====================================================================
       // DÍAS DE LA SEMANA - SOLO PARA REGULAR
+      // FIX: comparación directa con el nombre completo del día (insensible
+      //      a mayúsculas/tildes) en lugar de comparar sólo los 3 primeros
+      //      caracteres, lo que fallaba con 'Miércoles' y acentos.
       // =====================================================================
       if (!esCampesena) {
         hLine(y); hLine(y + ROW_H);
         vLine(LEFT, y, y + ROW_H); vLine(RIGHT, y, y + ROW_H); vLine(VAL_X, y, y + ROW_H);
         txt('Días semana*', LEFT + 2, y + 4, 6.5, 'Helvetica', '#333', { width: LBL_W - 4 });
 
-        const diasLetras  = ['L','M','M','J','V','S','D'];
-        const diasNombres = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
-        const diasOferta  = oferta.horario?.dias || [];
-        const diasSlot    = VAL_W / 7;
+        const diasLetras  = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+        const diasNombres = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+        // Normalizar los días de la oferta: quitar tildes y pasar a minúsculas
+        // para que la comparación sea robusta sin importar cómo se guardaron.
+        const normalizar = (str) =>
+          (str || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+
+        const diasOfertaNorm = (oferta.horario?.dias || []).map(normalizar);
+        const diasSlot = VAL_W / 7;
 
         diasLetras.forEach((letra, i) => {
           const dx = VAL_X + i * diasSlot;
           vLine(dx, y, y + ROW_H);
-          const checked = diasOferta.some(d =>
-            d.toLowerCase().startsWith(diasNombres[i].toLowerCase().substring(0, 3)));
+
+          // Comparación directa nombre completo normalizado
+          const checked = diasOfertaNorm.includes(normalizar(diasNombres[i]));
+
           chk(dx + 4, y + 5, checked, 8);
           txt(letra, dx + 15, y + 4, 7.5, 'Helvetica-Bold', 'black', { width: diasSlot - 18 });
         });
@@ -334,22 +348,18 @@ const generarFichaCaracterizacion = async (oferta) => {
       const horaInicio = oferta.horario?.hora_inicio || '';
       const horaFin    = oferta.horario?.hora_fin    || '';
       
-      // Para Regular: mostrar horario
       if (!esCampesena) {
         row('Horario*', horaInicio && horaFin ? `${horaInicio} a ${horaFin}` : horaInicio || horaFin);
       }
       
-      // Mostrar meses según el modo
       row('Fechas mes 1', mes1);
       
       if (esCampesena) {
-        // Campesena: mostrar hasta 5 meses
         if (mes2) row('Fechas mes 2', mes2);
         if (mes3) row('Fechas mes 3', mes3);
         if (mes4) row('Fechas mes 4', mes4);
         if (mes5) row('Fechas mes 5', mes5);
       } else {
-        // Regular: solo mostrar mes2
         if (mes2) row('Fechas mes 2', mes2);
       }
       

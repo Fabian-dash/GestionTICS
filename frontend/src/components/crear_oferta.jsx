@@ -106,7 +106,7 @@ const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, req
             <li
               key={opcion._id}
               onPointerDown={(e) => {
-                e.preventDefault(); // Cancela el blur del input antes de que ocurra
+                e.preventDefault();
                 handleSeleccionar(opcion);
               }}
               style={{
@@ -362,13 +362,14 @@ const CrearOferta = ({ onOfertaCreada }) => {
       formDataToSend.append('subsector_nombre', formData.subsector_economico.nombre);
       formDataToSend.append('convenio_nombre', formData.convenio.nombre);
 
+      // ✅ FIX: horario_dias solo se agrega una vez, dentro del bloque regular
       if (modo === 'regular') {
         formDataToSend.append('horario_hora_inicio', formData.horario.hora_inicio);
         formDataToSend.append('horario_hora_fin', formData.horario.hora_fin);
         formDataToSend.append('horario_dias', JSON.stringify(formData.horario.dias));
       }
 
-      formDataToSend.append('horario_dias', JSON.stringify(formData.horario.dias));
+      // ✅ Línea duplicada eliminada — ya no sobreescribe los días con []
       formDataToSend.append('duracion_meses', '12');
 
       if (formData.firma_digital_pdf) formDataToSend.append('firma_digital_pdf', formData.firma_digital_pdf);
@@ -726,65 +727,12 @@ const styles = {
   cambiarModoButton: { backgroundColor: '#95a5a6', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
 
   autocompleteWrapper: { position: 'relative', width: '100%' },
-  autocompleteInput: {
-    padding: '10px 36px 10px 10px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box'
-  },
-  autocompleteIcon: {
-    position: 'absolute',
-    right: '10px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    fontSize: '14px',
-    pointerEvents: 'none'
-  },
-  autocompleteList: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    border: '1px solid #3498db',
-    borderTop: 'none',
-    borderRadius: '0 0 4px 4px',
-    maxHeight: '220px',
-    overflowY: 'auto',
-    zIndex: 1000,
-    margin: 0,
-    padding: 0,
-    listStyle: 'none',
-    boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-  },
-  autocompleteItem: {
-    padding: '10px 12px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    color: '#2c3e50',
-    borderBottom: '1px solid #f0f0f0'
-  },
-  autocompleteItemResaltado: {
-    backgroundColor: '#eaf4fc',
-    color: '#2980b9'
-  },
-  autocompleteVacio: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    border: '1px solid #ddd',
-    borderTop: 'none',
-    borderRadius: '0 0 4px 4px',
-    padding: '10px 12px',
-    fontSize: '13px',
-    color: '#95a5a6',
-    zIndex: 1000
-  },
+  autocompleteInput: { padding: '10px 36px 10px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', outline: 'none', width: '100%', boxSizing: 'border-box' },
+  autocompleteIcon: { position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', pointerEvents: 'none' },
+  autocompleteList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #3498db', borderTop: 'none', borderRadius: '0 0 4px 4px', maxHeight: '220px', overflowY: 'auto', zIndex: 1000, margin: 0, padding: 0, listStyle: 'none', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' },
+  autocompleteItem: { padding: '10px 12px', cursor: 'pointer', fontSize: '14px', color: '#2c3e50', borderBottom: '1px solid #f0f0f0' },
+  autocompleteItemResaltado: { backgroundColor: '#eaf4fc', color: '#2980b9' },
+  autocompleteVacio: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #ddd', borderTop: 'none', borderRadius: '0 0 4px 4px', padding: '10px 12px', fontSize: '13px', color: '#95a5a6', zIndex: 1000 },
 
   section: { backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '25px', border: '1px solid #e0e0e0' },
   subSection: { backgroundColor: '#ffffff', padding: '15px', borderRadius: '6px', marginTop: '10px', border: '1px solid #3498db' },

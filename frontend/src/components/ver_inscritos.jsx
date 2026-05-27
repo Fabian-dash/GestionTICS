@@ -149,10 +149,16 @@ const VerInscritos = () => {
     finally { setLI(false); }
   };
 
+  // ✅ CORRECCIÓN: blob ya es un Blob, no hace falta envolverlo en new Blob([blob])
   const descargar = (blob, nombre) => {
-    const url = window.URL.createObjectURL(new Blob([blob]));
-    const a = document.createElement('a'); a.href = url; a.setAttribute('download', nombre);
-    document.body.appendChild(a); a.click(); a.remove();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.setAttribute('download', nombre);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url); // libera memoria
   };
 
   const exportarCompleto = async () => {
@@ -661,4 +667,3 @@ const st = {
 };
 
 export default VerInscritos;
-// dfghjklñ

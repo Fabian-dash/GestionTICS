@@ -7,6 +7,7 @@ const LinksInscripcion = () => {
   const [copiado, setCopiado] = useState(null);
   const [usuario, setUsuario] = useState(null);
   const [hoveredCard, setHoveredCard] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // id de oferta a eliminar
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -56,6 +57,17 @@ const LinksInscripcion = () => {
     }
   };
 
+  const eliminarOferta = async (ofertaId) => {
+    try {
+      await api.delete(`/ofertas/${ofertaId}`);
+      setOfertas(prev => prev.filter(o => o._id !== ofertaId));
+      setConfirmDelete(null);
+    } catch (error) {
+      console.error('Error eliminando oferta:', error);
+      alert('Error al eliminar la oferta');
+    }
+  };
+
   const getCuposColor = (disponibles, maximo) => {
     const ratio = disponibles / maximo;
     if (ratio > 0.5) return '#10b981';
@@ -79,6 +91,39 @@ const LinksInscripcion = () => {
     <>
       <style>{globalStyles}</style>
       <div style={styles.page}>
+
+        {/* Modal de confirmación de eliminación */}
+        {confirmDelete && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modal}>
+              <div style={styles.modalIcon}>
+                <TrashIcon size={28} />
+              </div>
+              <h3 style={styles.modalTitle}>¿Eliminar oferta?</h3>
+              <p style={styles.modalText}>
+                Esta acción no se puede deshacer. Se eliminarán también los
+                instructores e inscripciones asociados.
+              </p>
+              <div style={styles.modalActions}>
+                <button
+                  onClick={() => setConfirmDelete(null)}
+                  style={{ ...styles.btn, ...styles.btnSecondary, flex: 1, justifyContent: 'center' }}
+                  className="btn-hover"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => eliminarOferta(confirmDelete)}
+                  style={{ ...styles.btn, ...styles.btnDelete, flex: 1, justifyContent: 'center' }}
+                  className="btn-hover"
+                >
+                  <TrashIcon /> Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerLeft}>
@@ -246,6 +291,16 @@ const LinksInscripcion = () => {
                       >
                         <PdfIcon />
                       </button>
+
+                      {/* NUEVO: botón eliminar */}
+                      <button
+                        onClick={() => setConfirmDelete(oferta._id)}
+                        style={{ ...styles.btn, ...styles.btnDanger }}
+                        className="btn-hover"
+                        title="Eliminar oferta"
+                      >
+                        <TrashIcon />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -304,8 +359,16 @@ const PdfIcon = () => (
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
   </svg>
 );
+const TrashIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+    <path d="M10 11v6M14 11v6"/>
+    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+  </svg>
+);
 
-/* ── Global styles (keyframes, hover) ── */
+/* ── Global styles ── */
 const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
 
@@ -322,13 +385,17 @@ const globalStyles = `
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
   }
 `;
 
-/* ── Styles object ── */
+/* ── Styles ── */
 const styles = {
   page: {
     padding: '32px 28px',
@@ -337,6 +404,54 @@ const styles = {
     fontFamily: "'DM Sans', sans-serif",
     color: '#0f172a',
     animation: 'fadeUp 0.4s ease both',
+  },
+
+  /* Modal */
+  modalOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(15,23,42,0.45)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+    animation: 'fadeIn 0.2s ease',
+  },
+  modal: {
+    background: '#ffffff',
+    borderRadius: '16px',
+    padding: '28px 28px 24px',
+    width: '360px',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+    animation: 'scaleIn 0.2s ease',
+    textAlign: 'center',
+  },
+  modalIcon: {
+    width: '52px',
+    height: '52px',
+    borderRadius: '50%',
+    background: '#fef2f2',
+    color: '#ef4444',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 16px',
+  },
+  modalTitle: {
+    margin: '0 0 8px',
+    fontSize: '17px',
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  modalText: {
+    margin: '0 0 22px',
+    fontSize: '13px',
+    color: '#64748b',
+    lineHeight: '1.6',
+  },
+  modalActions: {
+    display: 'flex',
+    gap: '10px',
   },
 
   /* Header */
@@ -378,38 +493,11 @@ const styles = {
     color: '#64748b',
     fontWeight: '400',
   },
-  userBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    background: '#f1f5f9',
-    border: '1px solid #e2e8f0',
-    borderRadius: '50px',
-    padding: '6px 14px 6px 6px',
-  },
-  userAvatar: {
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, #10b981, #047857)',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '12px',
-    fontWeight: '700',
-  },
-  userName: {
-    fontSize: '13px',
-    fontWeight: '500',
-    color: '#334155',
-  },
 
   /* Stats bar */
   statsBar: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0',
     background: '#f8fafc',
     border: '1px solid #e2e8f0',
     borderRadius: '12px',
@@ -618,7 +706,6 @@ const styles = {
   },
   btnCopied: {
     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    boxShadow: '0 2px 8px rgba(16,185,129,0.3)',
   },
   btnSecondary: {
     background: '#f1f5f9',
@@ -633,6 +720,19 @@ const styles = {
     border: '1px solid #e2e8f0',
     padding: '8px 10px',
   },
+  btnDanger: {
+    background: 'transparent',
+    color: '#ef4444',
+    border: '1px solid #fecaca',
+    padding: '8px 10px',
+  },
+  btnDelete: {
+    background: '#ef4444',
+    color: 'white',
+    border: 'none',
+    justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(239,68,68,0.3)',
+  },
 
   /* Empty */
   emptyState: {
@@ -642,10 +742,7 @@ const styles = {
     borderRadius: '16px',
     border: '1px dashed #cbd5e1',
   },
-  emptyIcon: {
-    marginBottom: '16px',
-    opacity: 0.6,
-  },
+  emptyIcon: { marginBottom: '16px', opacity: 0.6 },
   emptyTitle: {
     margin: '0 0 8px',
     fontSize: '18px',
