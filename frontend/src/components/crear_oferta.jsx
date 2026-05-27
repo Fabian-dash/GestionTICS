@@ -3,6 +3,7 @@ import api from '../services/api';
 import SeleccionarTipoOferta from './seleccionar_tipo_oferta';
 import FormularioCampesenaCompleto from './formulario_campesena_completo';
 import Swal from 'sweetalert2';
+import HorarioPicker from './HorarioPicker';
 
 // ===== COMPONENTE AUTOCOMPLETE REUTILIZABLE =====
 const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, required }) => {
@@ -155,6 +156,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
     programa_especial: '',
     convenio: { nombre: '' },
     horario: { hora_inicio: '08:00', hora_fin: '12:00', dias: [] },
+    instructor: { nombre: '', apellido: '', correoElectronico: '', tipoIdentificacion: '', numeroIdentificacion: '' },
     firma_digital_pdf: null,
     carta_pdf: null
   });
@@ -174,7 +176,30 @@ const CrearOferta = ({ onOfertaCreada }) => {
     numero_empleados: ''
   });
 
-  useEffect(() => { cargarDatosIniciales(); }, []);
+  useEffect(() => {
+    cargarDatosIniciales();
+
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        if (parsedUser?.tipo === 'instructor') {
+          setFormData(prev => ({
+            ...prev,
+            instructor: {
+              nombre: parsedUser.nombre || '',
+              apellido: parsedUser.apellido || '',
+              correoElectronico: parsedUser.correoElectronico || '',
+              tipoIdentificacion: parsedUser.tipoIdentificacion?.nombre || parsedUser.tipoIdentificacion || '',
+              numeroIdentificacion: parsedUser.numeroIdentificacion || ''
+            }
+          }));
+        }
+      } catch (error) {
+        console.warn('No se pudo leer el usuario en localStorage', error);
+      }
+    }
+  }, []);
 
   const cargarDatosIniciales = async () => {
     try {
@@ -362,15 +387,18 @@ const CrearOferta = ({ onOfertaCreada }) => {
       formDataToSend.append('subsector_nombre', formData.subsector_economico.nombre);
       formDataToSend.append('convenio_nombre', formData.convenio.nombre);
 
-      // ✅ FIX: horario_dias solo se agrega una vez, dentro del bloque regular
       if (modo === 'regular') {
         formDataToSend.append('horario_hora_inicio', formData.horario.hora_inicio);
         formDataToSend.append('horario_hora_fin', formData.horario.hora_fin);
         formDataToSend.append('horario_dias', JSON.stringify(formData.horario.dias));
       }
 
-      // ✅ Línea duplicada eliminada — ya no sobreescribe los días con []
       formDataToSend.append('duracion_meses', '12');
+      formDataToSend.append('instructor_nombre', formData.instructor?.nombre || '');
+      formDataToSend.append('instructor_apellido', formData.instructor?.apellido || '');
+      formDataToSend.append('instructor_correoElectronico', formData.instructor?.correoElectronico || '');
+      formDataToSend.append('instructor_tipoIdentificacion', typeof formData.instructor?.tipoIdentificacion === 'object' ? formData.instructor?.tipoIdentificacion?.nombre || '' : formData.instructor?.tipoIdentificacion || '');
+      formDataToSend.append('instructor_numeroIdentificacion', formData.instructor?.numeroIdentificacion || '');
 
       if (formData.firma_digital_pdf) formDataToSend.append('firma_digital_pdf', formData.firma_digital_pdf);
       if (formData.carta_pdf) formDataToSend.append('carta_pdf', formData.carta_pdf);
@@ -402,8 +430,6 @@ const CrearOferta = ({ onOfertaCreada }) => {
       setLoading(false);
     }
   };
-
-  const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
   if (!modo) return <SeleccionarTipoOferta onSeleccionar={setModo} />;
 
@@ -508,6 +534,31 @@ const CrearOferta = ({ onOfertaCreada }) => {
           <div style={styles.formGroup}>
             <label style={styles.label}>Dirección:</label>
             <input type="text" name="ubicacion.direccion" value={formData.ubicacion.direccion} onChange={handleChange} style={styles.input} placeholder="Calle 123 #45-67, Barrio Centro" required />
+          </div>
+        </div>
+
+        {/* DATOS DEL INSTRUCTOR */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>Datos del Instructor</h3>
+          <div style={styles.row}>
+            <div style={styles.half}>
+              <label style={styles.label}>Nombre completo</label>
+              <input type="text" value={`${formData.instructor.nombre || ''} ${formData.instructor.apellido || ''}`.trim()} style={styles.input} readOnly />
+            </div>
+            <div style={styles.half}>
+              <label style={styles.label}>Correo electrónico</label>
+              <input type="email" value={formData.instructor.correoElectronico || ''} style={styles.input} readOnly />
+            </div>
+          </div>
+          <div style={styles.row}>
+            <div style={styles.half}>
+              <label style={styles.label}>Tipo de documento</label>
+              <input type="text" value={typeof formData.instructor.tipoIdentificacion === 'object' ? formData.instructor.tipoIdentificacion?.nombre || '' : formData.instructor.tipoIdentificacion || ''} style={styles.input} readOnly />
+            </div>
+            <div style={styles.half}>
+              <label style={styles.label}>Documento</label>
+              <input type="text" value={formData.instructor.numeroIdentificacion || ''} style={styles.input} readOnly />
+            </div>
           </div>
         </div>
 
@@ -652,26 +703,12 @@ const CrearOferta = ({ onOfertaCreada }) => {
         {modo === 'regular' && (
           <div style={styles.section}>
             <h3 style={styles.sectionTitle}>Horario</h3>
-            <div style={styles.row}>
-              <div style={styles.half}>
-                <label style={styles.label}>Hora Inicio:</label>
-                <input type="time" name="horario.hora_inicio" value={formData.horario.hora_inicio} onChange={handleChange} style={styles.input} required />
-              </div>
-              <div style={styles.half}>
-                <label style={styles.label}>Hora Fin:</label>
-                <input type="time" name="horario.hora_fin" value={formData.horario.hora_fin} onChange={handleChange} style={styles.input} required />
-              </div>
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Días:</label>
-              <div style={styles.checkboxGroup}>
-                {diasSemana.map(dia => (
-                  <label key={dia} style={styles.checkboxLabel}>
-                    <input type="checkbox" value={dia} checked={formData.horario.dias.includes(dia)} onChange={handleDiaChange} /> {dia}
-                  </label>
-                ))}
-              </div>
-            </div>
+            <HorarioPicker
+              horario={formData.horario}
+              fechaInicio={formData.fechas.inicio}
+              fechaFin={formData.fechas.fin}
+              onChange={(nuevoHorario) => setFormData({ ...formData, horario: nuevoHorario })}
+            />
           </div>
         )}
 
@@ -721,43 +758,171 @@ const CrearOferta = ({ onOfertaCreada }) => {
 };
 
 const styles = {
-  container: { maxWidth: '800px', margin: '0 auto', padding: '20px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
-  title: { color: '#2c3e50', borderBottom: '3px solid #3498db', paddingBottom: '10px', marginBottom: '0', fontSize: '28px' },
-  cambiarModoButton: { backgroundColor: '#95a5a6', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
-
-  autocompleteWrapper: { position: 'relative', width: '100%' },
-  autocompleteInput: { padding: '10px 36px 10px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', outline: 'none', width: '100%', boxSizing: 'border-box' },
-  autocompleteIcon: { position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', pointerEvents: 'none' },
-  autocompleteList: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #3498db', borderTop: 'none', borderRadius: '0 0 4px 4px', maxHeight: '220px', overflowY: 'auto', zIndex: 1000, margin: 0, padding: 0, listStyle: 'none', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' },
-  autocompleteItem: { padding: '10px 12px', cursor: 'pointer', fontSize: '14px', color: '#2c3e50', borderBottom: '1px solid #f0f0f0' },
-  autocompleteItemResaltado: { backgroundColor: '#eaf4fc', color: '#2980b9' },
-  autocompleteVacio: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #ddd', borderTop: 'none', borderRadius: '0 0 4px 4px', padding: '10px 12px', fontSize: '13px', color: '#95a5a6', zIndex: 1000 },
-
-  section: { backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '25px', border: '1px solid #e0e0e0' },
-  subSection: { backgroundColor: '#ffffff', padding: '15px', borderRadius: '6px', marginTop: '10px', border: '1px solid #3498db' },
-  sectionTitle: { color: '#2c3e50', marginTop: 0, marginBottom: '20px', fontSize: '18px', borderBottom: '1px solid #3498db', paddingBottom: '5px' },
-  subSectionTitle: { color: '#3498db', marginTop: 0, marginBottom: '15px', fontSize: '16px' },
-  form: { display: 'flex', flexDirection: 'column', gap: '20px' },
-  formGroup: { display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px' },
-  row: { display: 'flex', gap: '20px', marginBottom: '15px' },
-  half: { flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' },
-  label: { fontSize: '14px', fontWeight: 'bold', color: '#34495e' },
-  input: { padding: '10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', outline: 'none' },
-  select: { padding: '10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', backgroundColor: 'white', cursor: 'pointer' },
-  checkboxGroup: { display: 'flex', flexWrap: 'wrap', gap: '15px', padding: '10px 0' },
-  checkboxLabel: { display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', cursor: 'pointer' },
-  buttonGroup: { display: 'flex', gap: '10px', marginTop: '20px' },
-  submitButton: { backgroundColor: '#27ae60', color: 'white', padding: '15px', border: 'none', borderRadius: '4px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' },
-  secondaryButton: { backgroundColor: '#3498db', color: 'white', padding: '10px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', marginTop: '5px', width: '100%' },
-  successButton: { flex: 1, backgroundColor: '#27ae60', color: 'white', padding: '12px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
-  cancelButton: { flex: 1, backgroundColor: '#e74c3c', color: 'white', padding: '12px', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
-  buttonDisabled: { backgroundColor: '#95a5a6', cursor: 'not-allowed' },
-  fileInputGroup: { display: 'flex', flexDirection: 'column', gap: '10px' },
-  fileInfo: { display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', backgroundColor: '#ecf0f1', borderRadius: '4px' },
-  fileName: { fontSize: '13px', color: '#2c3e50', flex: 1 },
-  removeFileButton: { backgroundColor: 'transparent', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold', padding: '0 5px' },
-  fileHint: { fontSize: '12px', color: '#7f8c8d', marginTop: '4px' },
+  container: {
+    maxWidth: '860px',
+    margin: '0 auto',
+    padding: '28px',
+    backgroundColor: '#f3f6fb',
+    borderRadius: '24px',
+    boxShadow: '0 28px 80px rgba(15, 23, 42, 0.08)'
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '18px',
+    marginBottom: '34px',
+    flexWrap: 'wrap'
+  },
+  title: {
+    color: '#1f2937',
+    margin: 0,
+    fontSize: '32px',
+    fontWeight: 700,
+    letterSpacing: '-0.02em'
+  },
+  cambiarModoButton: {
+    backgroundColor: '#1d4ed8',
+    color: 'white',
+    padding: '12px 20px',
+    border: 'none',
+    borderRadius: '14px',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 10px 25px rgba(59, 130, 246, 0.18)'
+  },
+  autocompleteWrapper: {
+    position: 'relative',
+    width: '100%'
+  },
+  autocompleteInput: {
+    padding: '14px 44px 14px 14px',
+    border: '1px solid #cbd5e1',
+    borderRadius: '16px',
+    fontSize: '15px',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+    backgroundColor: 'white',
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+  },
+  autocompleteIcon: {
+    position: 'absolute',
+    right: '14px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    fontSize: '16px',
+    pointerEvents: 'none'
+  },
+  autocompleteList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    border: '1px solid #cbd5e1',
+    borderTop: 'none',
+    borderRadius: '0 0 16px 16px',
+    maxHeight: '240px',
+    overflowY: 'auto',
+    zIndex: 1000,
+    margin: 0,
+    padding: 0,
+    listStyle: 'none',
+    boxShadow: '0 24px 40px rgba(15, 23, 42, 0.12)'
+  },
+  autocompleteItem: {
+    padding: '14px 16px',
+    cursor: 'pointer',
+    fontSize: '15px',
+    color: '#334155',
+    borderBottom: '1px solid #eff2f7'
+  },
+  autocompleteItemResaltado: {
+    backgroundColor: '#eff6ff',
+    color: '#1d4ed8'
+  },
+  autocompleteVacio: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    border: '1px solid #cbd5e1',
+    borderTop: 'none',
+    borderRadius: '0 0 16px 16px',
+    padding: '12px 14px',
+    fontSize: '14px',
+    color: '#64748b',
+    zIndex: 1000
+  },
+  section: {
+    backgroundColor: 'white',
+    padding: '24px',
+    borderRadius: '24px',
+    marginBottom: '24px',
+    border: '1px solid #e2e8f0',
+    boxShadow: '0 14px 30px rgba(15, 23, 42, 0.05)'
+  },
+  subSection: {
+    backgroundColor: '#f8fafc',
+    padding: '20px',
+    borderRadius: '18px',
+    marginTop: '14px',
+    border: '1px solid #c7d2fe'
+  },
+  sectionTitle: {
+    color: '#0f172a',
+    marginTop: 0,
+    marginBottom: '20px',
+    fontSize: '20px',
+    borderBottom: '1px solid #dbeafe',
+    paddingBottom: '10px',
+    letterSpacing: '0.01em'
+  },
+  subSectionTitle: {
+    color: '#4338ca',
+    marginTop: 0,
+    marginBottom: '16px',
+    fontSize: '17px'
+  },
+  form: { display: 'flex', flexDirection: 'column', gap: '24px' },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' },
+  row: { display: 'flex', gap: '20px', marginBottom: '15px', flexWrap: 'wrap' },
+  half: { flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '240px' },
+  label: { fontSize: '14px', fontWeight: 700, color: '#1e293b' },
+  input: {
+    padding: '14px 16px',
+    border: '1px solid #cbd5e1',
+    borderRadius: '14px',
+    fontSize: '15px',
+    outline: 'none',
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+    backgroundColor: 'white'
+  },
+  select: {
+    padding: '14px 16px',
+    border: '1px solid #cbd5e1',
+    borderRadius: '14px',
+    fontSize: '15px',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+  },
+  checkboxGroup: { display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '12px 0' },
+  checkboxLabel: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' },
+  buttonGroup: { display: 'flex', gap: '14px', marginTop: '22px', flexWrap: 'wrap' },
+  submitButton: { backgroundColor: '#1d4ed8', color: 'white', padding: '16px', border: 'none', borderRadius: '16px', fontSize: '16px', fontWeight: 700, cursor: 'pointer', marginTop: '10px', boxShadow: '0 16px 28px rgba(59, 130, 246, 0.2)' },
+  secondaryButton: { backgroundColor: '#f1f5f9', color: '#1e293b', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '16px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', marginTop: '5px', width: '100%' },
+  successButton: { flex: 1, backgroundColor: '#059669', color: 'white', padding: '14px', border: 'none', borderRadius: '16px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' },
+  cancelButton: { flex: 1, backgroundColor: '#ef4444', color: 'white', padding: '14px', border: 'none', borderRadius: '16px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' },
+  buttonDisabled: { backgroundColor: '#94a3b8', cursor: 'not-allowed' },
+  fileInputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  fileInfo: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', backgroundColor: '#eef2ff', borderRadius: '14px' },
+  fileName: { fontSize: '14px', color: '#1e293b', flex: 1 },
+  removeFileButton: { backgroundColor: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', padding: '0 5px' },
+  fileHint: { fontSize: '13px', color: '#475569', marginTop: '4px' },
   fileInput: { fontSize: '14px' }
 };
 

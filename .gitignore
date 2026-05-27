@@ -9,4 +9,6 @@ frontend/node_modules/.cache/
 backend/uploads/
 
 # Archivos de entorno
+
+.env
 .env

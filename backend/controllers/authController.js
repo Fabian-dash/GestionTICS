@@ -1,3 +1,4 @@
+const Admin = require('../models/Admin');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -43,15 +44,24 @@ const registerUser = async (req, res) => {
         telefono,
         correoElectronico,
         coordinadorAsignado,
-        password: hashedPassword
+        password: hashedPassword,
+        aprobado: false  // ← nuevo usuario queda pendiente
       });
 
+      await user.populate('tipoIdentificacion', 'nombre');
+      await user.populate('coordinadorAsignado', 'nombre');
+
       return res.status(201).json({
-        message: 'Instructor registrado correctamente',
+        message: 'Instructor registrado correctamente. Tu cuenta está pendiente de aprobación por el administrador.',
         user: {
           id: user._id,
+          nombre: user.nombre,
+          apellido: user.apellido,
           nombreUsuario: user.nombreUsuario,
           correoElectronico: user.correoElectronico,
+          tipoIdentificacion: user.tipoIdentificacion,
+          numeroIdentificacion: user.numeroIdentificacion,
+          coordinadorAsignado: user.coordinadorAsignado,
           tipo: 'instructor'
         }
       });
@@ -70,11 +80,12 @@ const registerUser = async (req, res) => {
         nombre,
         telefono,
         correoElectronico,
-        password: hashedPassword
+        password: hashedPassword,
+        aprobado: false  // ← nuevo usuario queda pendiente
       });
 
       return res.status(201).json({
-        message: 'Coordinador registrado correctamente',
+        message: 'Coordinador registrado correctamente. Tu cuenta está pendiente de aprobación por el administrador.',
         user: {
           id: coord._id,
           nombreUsuario: coord.nombreUsuario,
@@ -102,11 +113,12 @@ const registerUser = async (req, res) => {
         telefono,
         correoElectronico,
         password: hashedPassword,
-        modalidades
+        modalidades,
+        aprobado: false  // ← nuevo usuario queda pendiente
       });
 
       return res.status(201).json({
-        message: 'Funcionario registrado correctamente',
+        message: 'Funcionario registrado correctamente. Tu cuenta está pendiente de aprobación por el administrador.',
         user: {
           id: func._id,
           nombreUsuario: func.nombreUsuario,
@@ -132,9 +144,17 @@ const loginUnificado = async (req, res) => {
     let user = null;
     let tipo = null;
 
+    // Buscar en admin primero
+    user = await Admin.findOne({ correoElectronico });
+    if (user) tipo = 'admin';
+
     // Buscar en instructores
-    user = await User.findOne({ correoElectronico }).populate('coordinadorAsignado', 'nombre');
-    if (user) tipo = 'instructor';
+    if (!user) {
+      user = await User.findOne({ correoElectronico })
+        .populate('coordinadorAsignado', 'nombre')
+        .populate('tipoIdentificacion', 'nombre');
+      if (user) tipo = 'instructor';
+    }
 
     // Buscar en coordinadores
     if (!user) {
@@ -157,11 +177,36 @@ const loginUnificado = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Datos inválidos' });
     }
 
+    // ── Bloquear si no está aprobado (no aplica a admin) ──
+    if (tipo !== 'admin' && user.aprobado === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Tu cuenta está pendiente de aprobación por el administrador. Por favor espera a que sea activada.',
+        code: 'CUENTA_PENDIENTE'
+      });
+    }
+
     const token = jwt.sign(
       { id: user._id, tipo },
       process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
+
+    // ── Respuesta según tipo ──
+    if (tipo === 'admin') {
+      return res.json({
+        success: true,
+        message: 'Login exitoso',
+        token,
+        user: {
+          id: user._id,
+          nombre: user.nombre,
+          nombreUsuario: user.nombreUsuario,
+          correoElectronico: user.correoElectronico,
+          tipo: 'admin'
+        }
+      });
+    }
 
     if (tipo === 'coordinador') {
       return res.json({
@@ -207,6 +252,8 @@ const loginUnificado = async (req, res) => {
         correoElectronico: user.correoElectronico,
         nombre: user.nombre,
         apellido: user.apellido,
+        tipoIdentificacion: user.tipoIdentificacion,
+        numeroIdentificacion: user.numeroIdentificacion,
         tipo: 'instructor',
         coordinadorAsignado: user.coordinadorAsignado
       }
