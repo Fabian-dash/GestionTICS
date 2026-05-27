@@ -12,6 +12,7 @@ import MisInstructores from './components/mis_instructores';
 import SolicitudesPendientes from './components/solicitudes_pendientes';
 import MisOfertas from './components/mis_ofertas';
 import FuncionarioDashboard from './components/funcionario_dashboard';
+import AdminPanel from './components/AdminPanel'; // ← nuevo
 
 /* ─── Global styles ─── */
 const globalStyles = `
@@ -216,10 +217,7 @@ const globalStyles = `
     transition: background .2s, color .2s;
     white-space: nowrap;
   }
-  .app-logout svg {
-    width: 14px;
-    height: 14px;
-  }
+  .app-logout svg { width: 14px; height: 14px; }
   .app-logout:hover { background: rgba(239,68,68,0.2); color: white; }
 
   /* ── Main ── */
@@ -238,7 +236,6 @@ const globalStyles = `
     padding: 0 28px;
     flex-shrink: 0;
   }
-  .app-topbar__left { }
   .app-topbar__title {
     font-size: 17px; font-weight: 700; color: #0f172a;
     line-height: 1;
@@ -345,6 +342,11 @@ const Ic = {
       <path d="M12.5 12.5l3-3-3-3M15.5 9.5H7M10 13.5v1A1.5 1.5 0 018.5 16h-5A1.5 1.5 0 012 14.5v-11A1.5 1.5 0 013.5 2h5A1.5 1.5 0 0110 3.5v1"/>
     </svg>
   ),
+  Shield: () => (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M9 2L3 5v4c0 3.55 2.58 6.87 6 7.68C12.42 15.87 15 12.55 15 9V5L9 2z"/>
+    </svg>
+  ),
   ChevronLeft: ({ flipped }) => (
     <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2"
       style={{ transform: flipped ? 'rotate(180deg)' : 'none', transition: 'transform .28s' }}>
@@ -353,13 +355,13 @@ const Ic = {
   ),
 };
 
-/* ─── Nav item definitions ─── */
+/* ─── Nav definitions ─── */
 const instructorNav = [
-  { id: 'crear',     label: 'Crear Oferta',          icon: <Ic.Plus /> },
+  { id: 'crear',      label: 'Crear Oferta',         icon: <Ic.Plus /> },
   { id: 'misofertas', label: 'Mis Ofertas',           icon: <Ic.Clipboard /> },
-  { id: 'solicitar', label: 'Solicitar Validación',   icon: <Ic.FileText /> },
-  { id: 'links',     label: 'Links de Inscripción',   icon: <Ic.Link /> },
-  { id: 'inscritos', label: 'Ver Inscritos',          icon: <Ic.Users /> },
+  { id: 'solicitar',  label: 'Solicitar Validación',  icon: <Ic.FileText /> },
+  { id: 'links',      label: 'Links de Inscripción',  icon: <Ic.Link /> },
+  { id: 'inscritos',  label: 'Ver Inscritos',         icon: <Ic.Users /> },
 ];
 
 const coordinadorNav = [
@@ -367,36 +369,55 @@ const coordinadorNav = [
   { id: 'instructores', label: 'Mis Instructores',          icon: <Ic.Users /> },
 ];
 
+const adminNav = [
+  { id: 'usuarios', label: 'Control de Acceso', icon: <Ic.Shield /> },
+];
+
 const labelMap = {
-  crear: 'Crear Oferta',
-  misofertas: 'Mis Ofertas',
-  solicitar: 'Solicitar Validación',
-  links: 'Links de Inscripción',
-  inscritos: 'Ver Inscritos',
-  solicitudes: 'Solicitudes de Validación',
+  crear:        'Crear Oferta',
+  misofertas:   'Mis Ofertas',
+  solicitar:    'Solicitar Validación',
+  links:        'Links de Inscripción',
+  inscritos:    'Ver Inscritos',
+  solicitudes:  'Solicitudes de Validación',
   instructores: 'Mis Instructores',
+  usuarios:     'Control de Acceso',
 };
 
 /* ─── Dashboard ─── */
 const Dashboard = () => {
-  const [vistaActiva, setVistaActiva] = useState('crear');
-  const [collapsed, setCollapsed] = useState(false);
-  const user = authService.getCurrentUser();
-  const userTipo = user?.tipo || 'instructor';
-  const navItems = userTipo === 'instructor' ? instructorNav : coordinadorNav;
+  const user      = authService.getCurrentUser();
+  const userTipo  = user?.tipo || 'instructor';
+
+  const defaultVista = userTipo === 'admin' ? 'usuarios'
+    : userTipo === 'coordinador' ? 'solicitudes'
+    : 'crear';
+
+  const [vistaActiva, setVistaActiva] = useState(defaultVista);
+  const [collapsed, setCollapsed]     = useState(false);
+
+  const navItems = userTipo === 'admin' ? adminNav
+    : userTipo === 'coordinador' ? coordinadorNav
+    : instructorNav;
 
   const handleLogout = () => {
     authService.logout();
     window.location.href = '/login';
   };
 
-  const initials = `${user?.nombre || ''}`.trim().charAt(0).toUpperCase() || 'U';
-  const fullName = [user?.nombre, user?.apellido].filter(Boolean).join(' ');
+  const initials  = `${user?.nombre || ''}`.trim().charAt(0).toUpperCase() || 'U';
+  const fullName  = [user?.nombre, user?.apellido].filter(Boolean).join(' ');
+
+  // Color del badge según rol
+  const roleColor = userTipo === 'admin' ? '#7c3aed'
+    : userTipo === 'coordinador' ? '#0f6e56'
+    : '#1d4ed8';
 
   return (
     <>
       <style>{globalStyles}</style>
       <div className="app-root">
+
         {/* ── Sidebar ── */}
         <aside className={`app-sidebar${collapsed ? ' app-sidebar--collapsed' : ''}`}>
           {/* Brand */}
@@ -421,7 +442,9 @@ const Dashboard = () => {
           <nav className="app-nav">
             {!collapsed && (
               <span className="app-nav__group-label">
-                {userTipo === 'instructor' ? 'INSTRUCTOR' : 'COORDINADOR'}
+                {userTipo === 'admin' ? 'ADMINISTRADOR'
+                  : userTipo === 'coordinador' ? 'COORDINADOR'
+                  : 'INSTRUCTOR'}
               </span>
             )}
             {navItems.map(item => (
@@ -436,7 +459,7 @@ const Dashboard = () => {
               </button>
             ))}
 
-            {/* Coordinator info */}
+            {/* Coordinador asignado (solo instructores) */}
             {!collapsed && userTipo === 'instructor' && user?.coordinadorAsignado?.nombre && (
               <>
                 <div className="app-nav__divider" />
@@ -452,10 +475,16 @@ const Dashboard = () => {
           {!collapsed && (
             <div className="app-sidebar__footer">
               <div className="app-profile">
-                <div className="app-profile__avatar">{initials}</div>
+                <div className="app-profile__avatar" style={{ background: roleColor }}>
+                  {initials}
+                </div>
                 <div style={{ overflow: 'hidden' }}>
-                  <p className="app-profile__name">{fullName}</p>
-                  <p className="app-profile__role">{userTipo}</p>
+                  <p className="app-profile__name">{fullName || user?.nombreUsuario || 'Admin'}</p>
+                  <p className="app-profile__role" style={{ color: roleColor, opacity: 1 }}>
+                    {userTipo === 'admin' ? 'Administrador'
+                      : userTipo === 'coordinador' ? 'Coordinador'
+                      : 'Instructor'}
+                  </p>
                 </div>
               </div>
               <button className="app-logout" onClick={handleLogout}>
@@ -471,7 +500,7 @@ const Dashboard = () => {
           {/* Topbar */}
           <header className="app-topbar">
             <div className="app-topbar__left">
-              <h1 className="app-topbar__title">{labelMap[vistaActiva] || 'Panel de Control'}</h1>
+              <h1 className="app-topbar__title">{labelMap[vistaActiva] || 'Panel'}</h1>
               <div className="app-breadcrumb">
                 <span>Gestion y TICS</span>
                 <span className="app-breadcrumb__sep">/</span>
@@ -480,8 +509,11 @@ const Dashboard = () => {
             </div>
             <div className="app-topbar__right">
               <div className="app-user-tag">
-                <span className="app-user-tag__dot" />
-                {fullName} · <span style={{ textTransform: 'capitalize', opacity: .8 }}>{userTipo}</span>
+                <span className="app-user-tag__dot" style={{ background: roleColor }} />
+                {fullName || user?.nombreUsuario} ·{' '}
+                <span style={{ textTransform: 'capitalize', opacity: .8 }}>
+                  {userTipo === 'admin' ? 'Administrador' : userTipo}
+                </span>
               </div>
               <img
                 src="https://www.sena.edu.co/Style%20Library/alayout/images/logoSena.png"
@@ -493,6 +525,15 @@ const Dashboard = () => {
 
           {/* Content */}
           <main className="app-content">
+
+            {/* Admin */}
+            {userTipo === 'admin' && (
+              <>
+                {vistaActiva === 'usuarios' && <AdminPanel />}
+              </>
+            )}
+
+            {/* Instructor */}
             {userTipo === 'instructor' && (
               <>
                 {vistaActiva === 'crear'      && <CrearOferta onOfertaCreada={() => setVistaActiva('links')} />}
@@ -502,12 +543,15 @@ const Dashboard = () => {
                 {vistaActiva === 'inscritos'  && <VerInscritos />}
               </>
             )}
+
+            {/* Coordinador */}
             {userTipo === 'coordinador' && (
               <>
                 {vistaActiva === 'solicitudes'  && <SolicitudesPendientes />}
                 {vistaActiva === 'instructores' && <MisInstructores />}
               </>
             )}
+
           </main>
         </div>
       </div>
@@ -521,6 +565,14 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+/* ─── Admin route — solo permite tipo admin ─── */
+const AdminRoute = ({ children }) => {
+  if (!authService.isAuthenticated()) return <Navigate to="/login" />;
+  const user = authService.getCurrentUser();
+  if (user?.tipo !== 'admin') return <Navigate to="/dashboard" />;
+  return children;
+};
+
 /* ─── App ─── */
 function App() {
   return (
@@ -529,8 +581,12 @@ function App() {
         <Route path="/inscribirse/:codigo" element={<FormularioInscripcion />} />
         <Route path="/login"    element={<Login />} />
         <Route path="/registro" element={<Registro />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/funcionario" element={<ProtectedRoute><FuncionarioDashboard /></ProtectedRoute>} />
+        <Route path="/dashboard" element={
+          <ProtectedRoute><Dashboard /></ProtectedRoute>
+        } />
+        <Route path="/funcionario" element={
+          <ProtectedRoute><FuncionarioDashboard /></ProtectedRoute>
+        } />
         <Route path="/"  element={<Navigate to="/login" />} />
         <Route path="*"  element={<Navigate to="/login" />} />
       </Routes>
