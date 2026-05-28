@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect } = require('../middlewares/authMiddleware');
 const {
   crearSolicitud,
+  getMisSolicitudes,
   getSolicitudesPendientes,
   getSolicitudById,
   rechazarSolicitud,
@@ -14,8 +15,11 @@ const {
   descargarCedulas
 } = require('../controllers/solicitudController');
 
-// Rutas existentes
+// Rutas para instructores
 router.post('/validacion', protect, crearSolicitud);
+router.get('/mis-solicitudes', protect, getMisSolicitudes);  // ← NUEVA
+
+// Rutas existentes
 router.get('/pendientes', protect, getSolicitudesPendientes);
 router.get('/:id', protect, getSolicitudById);
 router.put('/:id/rechazar', protect, rechazarSolicitud);

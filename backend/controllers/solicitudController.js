@@ -33,6 +33,34 @@ const crearSolicitud = async (req, res) => {
       });
     }
 
+    // ===== VALIDACIÓN: Verificar si ya existe una solicitud PENDIENTE =====
+    const solicitudPendiente = await SolicitudValidacion.findOne({
+      oferta_id: oferta_id,
+      instructor_id: instructor._id,
+      estado: 'pendiente'
+    });
+
+    if (solicitudPendiente) {
+      return res.status(400).json({
+        success: false,
+        message: 'Esta oferta ya tiene una solicitud pendiente de aprobación. Por favor espera la respuesta del coordinador.'
+      });
+    }
+
+    // ===== VALIDACIÓN: Si fue rechazada, permitir reenvío; si fue aprobada, bloquear =====
+    const solicitudAnterior = await SolicitudValidacion.findOne({
+      oferta_id: oferta_id,
+      instructor_id: instructor._id,
+      estado: { $ne: 'pendiente' }
+    }).sort({ fecha_solicitud: -1 });
+
+    if (solicitudAnterior && solicitudAnterior.estado === 'aprobada') {
+      return res.status(400).json({
+        success: false,
+        message: 'Esta oferta ya fue aprobada. No se puede reenviar.'
+      });
+    }
+
     // Verificar que el instructor tiene coordinador asignado
     if (!instructor.coordinadorAsignado) {
       return res.status(400).json({
@@ -675,12 +703,49 @@ const verificarArchivosSolicitud = async (req, res) => {
   }
 };
 
+// ===== NUEVA: Instructor - Obtener sus propias solicitudes =====
+const getMisSolicitudes = async (req, res) => {
+  try {
+    const instructor = req.usuario;
+    console.log('🔍 Obteniendo solicitudes del instructor:', instructor._id);
+
+    const misSolicitudes = await SolicitudValidacion.find({
+      instructor_id: instructor._id
+    })
+      .populate({
+        path: 'oferta_id',
+        select: 'programa_formacion',
+        populate: {
+          path: 'programa_formacion',
+          select: 'nombre_programa codigo'
+        }
+      })
+      .populate('coordinador_id', 'nombre')
+      .sort({ fecha_solicitud: -1 });
+
+    console.log('📋 Solicitudes del instructor:', misSolicitudes.length);
+
+    res.json({
+      success: true,
+      count: misSolicitudes.length,
+      data: misSolicitudes
+    });
+  } catch (error) {
+    console.error('Error en getMisSolicitudes:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 // =============================================
 // EXPORTACIONES
 // =============================================
 module.exports = {
   // Instructor
   crearSolicitud,
+  getMisSolicitudes,
   
   // Coordinador
   getSolicitudesPendientes,
