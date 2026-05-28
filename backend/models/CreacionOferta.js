@@ -66,6 +66,16 @@ const creacionOfertaSchema = new mongoose.Schema({
       required: [true, 'La fecha de fin es obligatoria']
     }
   },
+    funcionario_asignado: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Funcionario',
+    default: null
+  },
+
+  fecha_completado: {
+    type: Date,
+    default: null
+  },
   
   ubicacion: {
     departamento: {

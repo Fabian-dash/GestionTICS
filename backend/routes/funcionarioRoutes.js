@@ -5,7 +5,9 @@ const {
   registrarFuncionario,
   getFuncionarios,
   getFuncionariosPorModalidad,
-  getFuncionariosParaOferta
+  getFuncionariosParaOferta,
+  tomarOferta,
+  completarOferta
 } = require('../controllers/funcionarioController');
 
 // Rutas públicas
@@ -15,5 +17,9 @@ router.post('/registro', registrarFuncionario);
 router.get('/', protect, getFuncionarios);
 router.get('/modalidad/:modalidadId', protect, getFuncionariosPorModalidad);
 router.get('/oferta/:ofertaId', protect, getFuncionariosParaOferta);
+
+// Nuevas rutas: tomar y completar oferta
+router.patch('/tomar/:ofertaId', protect, tomarOferta);
+router.patch('/completar/:ofertaId', protect, completarOferta);
 
 module.exports = router;

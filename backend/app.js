@@ -9,7 +9,8 @@ const empresaRoutes = require('./routes/empresaRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const solicitudRoutes = require('./routes/solicitudRoutes');
 const ofertasFuncionarioRoutes = require('./routes/ofertasFuncionarioRoutes');
-const adminRoutes = require('./routes/adminRoutes'); // ← nueva ruta admin
+const adminRoutes = require('./routes/adminRoutes');
+const funcionarioRoutes = require('./routes/funcionarioRoutes'); // ← NUEVO
 
 const app = express();
 
@@ -46,7 +47,8 @@ app.use('/api/empresas', empresaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/solicitudes', solicitudRoutes);
 app.use('/api/ofertas-funcionario', ofertasFuncionarioRoutes);
-app.use('/api/admin', adminRoutes); // ← nueva ruta admin
+app.use('/api/admin', adminRoutes);
+app.use('/api/funcionarios', funcionarioRoutes); // ← NUEVO
 
 // Ruta de prueba
 app.get('/', (req, res) => {

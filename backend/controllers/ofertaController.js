@@ -103,7 +103,7 @@ const crearOferta = async (req, res) => {
       link_inscripciones: linkInscripciones,
       firma_digital_pdf: archivos.firma_digital_pdf,
       carta_pdf: archivos.carta_pdf,
-      estado: estadoBorrador._id // ← ESTO ES CRUCIAL
+      estado: estadoBorrador._id
     });
 
     console.log('💾 Guardando oferta...');
@@ -224,7 +224,7 @@ const obtenerOfertas = async (req, res) => {
         select: 'nombre nit'
       })
       .populate('coordinador_asignado', 'nombre')
-      .select('+carta_pdf +firma_digital_pdf')  // ← AGREGAR
+      .select('+carta_pdf +firma_digital_pdf')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -273,8 +273,6 @@ const exportarExcelOfertaCompleta = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-
 
 
 // Obtener una oferta por ID
@@ -338,7 +336,7 @@ const obtenerMisOfertas = async (req, res) => {
         select: 'nombre nit'
       })
       .populate('coordinador_asignado', 'nombre')
-      .select('+carta_pdf +firma_digital_pdf')  // ← ESTO ES CLAVE
+      .select('+carta_pdf +firma_digital_pdf')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -390,19 +388,20 @@ const getOfertaPorLink = async (req, res) => {
 };
 
 
-
 // =============================================
 // FUNCIONES PARA FUNCIONARIOS
 // =============================================
 
-// Obtener ofertas aprobadas según el tipo de funcionario
+// Obtener ofertas aprobadas/en_proceso/completadas según el tipo de funcionario
+// ← FUNCIÓN CORREGIDA: ahora muestra también ofertas en_proceso y completadas,
+//   e incluye los flags tomadaPorMi / tomadaPorOtro para el frontend
 const getOfertasAprobadasPorTipo = async (req, res) => {
   try {
     const { tipo } = req.params; // 'campesena' o 'regular'
     const funcionario = req.usuario;
 
     // Verificar que el funcionario tenga acceso a este tipo
-    const tieneAcceso = funcionario.modalidades?.some(m => 
+    const tieneAcceso = funcionario.modalidades?.some(m =>
       m.nombre?.toLowerCase() === tipo || m.toString().includes(tipo)
     );
 
@@ -413,19 +412,23 @@ const getOfertasAprobadasPorTipo = async (req, res) => {
       });
     }
 
-    // Buscar el estado "aprobada"
-    const estadoAprobada = await EstadoOferta.findOne({ codigo: 'aprobada' });
-    
-    if (!estadoAprobada) {
+    // Buscar los estados visibles para el funcionario: aprobada, en_proceso, completado
+    const estadosVisibles = await EstadoOferta.find({
+      codigo: { $in: ['aprobada', 'en_proceso', 'completado'] }
+    });
+
+    if (!estadosVisibles.length) {
       return res.status(404).json({
         success: false,
-        message: 'Estado "aprobada" no encontrado'
+        message: 'No se encontraron estados válidos en la base de datos'
       });
     }
 
-    // Buscar ofertas aprobadas del tipo correspondiente
+    const estadosIds = estadosVisibles.map(e => e._id);
+
+    // Buscar ofertas en esos estados
     const ofertas = await CreacionOferta.find({
-      estado: estadoAprobada._id,
+      estado: { $in: estadosIds },
       es_campesena: tipo === 'campesena'
     })
       .populate('programa_formacion')
@@ -433,6 +436,7 @@ const getOfertasAprobadasPorTipo = async (req, res) => {
       .populate('tipo_oferta')
       .populate('ubicacion.municipio')
       .populate('programa_especial')
+      .populate('estado')
       .populate({
         path: 'creado_por',
         select: 'nombre apellido'
@@ -442,20 +446,27 @@ const getOfertasAprobadasPorTipo = async (req, res) => {
         select: 'nombre nit'
       })
       .populate('coordinador_asignado', 'nombre')
+      // ← NUEVO: traer datos del funcionario asignado
+      .populate('funcionario_asignado', 'nombre nombreUsuario')
       .select('+carta_pdf +firma_digital_pdf')
       .sort({ createdAt: -1 });
 
-    // Agregar información de si ya tiene ficha registrada
-    const ofertasConFicha = ofertas.map(oferta => {
+    // Agregar flags para el frontend
+    const ofertasConFlags = ofertas.map(oferta => {
       const ofertaObj = oferta.toObject();
       ofertaObj.tieneFicha = !!oferta.ficha_sofia;
+      // ← NUEVO: el frontend sabe si esta oferta la tomó este funcionario u otro
+      ofertaObj.tomadaPorMi =
+        oferta.funcionario_asignado?._id?.toString() === funcionario._id.toString();
+      ofertaObj.tomadaPorOtro =
+        !!oferta.funcionario_asignado && !ofertaObj.tomadaPorMi;
       return ofertaObj;
     });
 
     res.json({
       success: true,
       count: ofertas.length,
-      data: ofertasConFicha
+      data: ofertasConFlags
     });
 
   } catch (error) {
@@ -527,7 +538,6 @@ const registrarFichaSofia = async (req, res) => {
     if (estadoFichaCreada) {
       oferta.estado = estadoFichaCreada._id;
       
-      // Agregar al historial
       if (!oferta.historial_estados) oferta.historial_estados = [];
       oferta.historial_estados.push({
         estado: estadoFichaCreada._id,
@@ -599,7 +609,6 @@ const getHistorialFichas = async (req, res) => {
 };
 
 
-
 // Obtener ofertas por coordinador
 const obtenerOfertasPorCoordinador = async (req, res) => {
   try {
@@ -623,7 +632,7 @@ const obtenerOfertasPorCoordinador = async (req, res) => {
         path: 'empresa_solicitante',
         select: 'nombre nit'
       })
-      .select('+carta_pdf +firma_digital_pdf')  // ← AGREGAR
+      .select('+carta_pdf +firma_digital_pdf')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -640,7 +649,6 @@ const obtenerOfertasPorCoordinador = async (req, res) => {
     });
   }
 };
-
 
 
 // Ruta para descargar PDF de una oferta

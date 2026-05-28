@@ -61,12 +61,34 @@ const estados = [
     permite_edicion: false,
     notificar_instructor: true
   },
+  // ← NUEVO: el funcionario tomó la oferta y está trabajando en ella
+  {
+    codigo: 'en_proceso',
+    nombre: 'En Proceso',
+    descripcion: 'Oferta tomada por un funcionario, en proceso',
+    color: '#e67e22',
+    orden: 7,
+    permite_edicion: false,
+    notificar_instructor: true,
+    notificar_funcionario: true
+  },
+  // ← NUEVO: el funcionario marcó la oferta como completada
+  {
+    codigo: 'completado',
+    nombre: 'Completado',
+    descripcion: 'Oferta completada por el funcionario',
+    color: '#1abc9c',
+    orden: 8,
+    permite_edicion: false,
+    notificar_instructor: true,
+    notificar_funcionario: false
+  },
   {
     codigo: 'completada',
     nombre: 'Completada',
     descripcion: 'Aprendices matriculados, oferta finalizada',
     color: '#2c3e50',
-    orden: 7,
+    orden: 9,
     permite_edicion: false,
     notificar_instructor: true
   }
