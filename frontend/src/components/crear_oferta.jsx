@@ -6,8 +6,44 @@ import Swal from 'sweetalert2';
 import HorarioPicker from './HorarioPicker';
 import { calcularFechaFin } from './horarioUtils';
 
+// ===== TOKENS DE DISEÑO MEJORADOS =====
+const T = {
+  primary: '#0f6e56',
+  primaryDark: '#0a3d2e',
+  primaryLight: '#e6f7f2',
+  secondary: '#2563eb',
+  secondaryDark: '#1e40af',
+  accent: '#f59e0b',
+  ink: '#0f172a',
+  inkLight: '#334155',
+  muted: '#64748b',
+  border: '#e2e8f0',
+  borderFocus: '#0f6e56',
+  bg: '#f8fafc',
+  white: '#ffffff',
+  success: '#10b981',
+  successBg: '#ecfdf5',
+  error: '#ef4444',
+  errorBg: '#fef2f2',
+  warning: '#f59e0b',
+  warningBg: '#fffbeb',
+  radius: {
+    sm: '12px',
+    md: '16px',
+    lg: '20px',
+    xl: '24px',
+    full: '9999px',
+  },
+  shadow: {
+    sm: '0 1px 2px 0 rgba(0, 0, 0, 0.03)',
+    md: '0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02)',
+    lg: '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)',
+    xl: '0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.01)',
+    glow: '0 0 0 3px rgba(15, 110, 86, 0.12)',
+  },
+};
 
-// ===== COMPONENTE AUTOCOMPLETE REUTILIZABLE =====
+// ===== COMPONENTE AUTOCOMPLETE REUTILIZABLE (con estilos mejorados) =====
 const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, required }) => {
   const [texto, setTexto] = useState('');
   const [abierto, setAbierto] = useState(false);
@@ -102,7 +138,6 @@ const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, req
   );
 };
 
-
 // ===== COMPONENTE PRINCIPAL =====
 const CrearOferta = ({ onOfertaCreada }) => {
   const [modo, setModo] = useState(null);
@@ -110,10 +145,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
   const [mostrarFormularioEmpresa, setMostrarFormularioEmpresa] = useState(false);
 
   const [tiposProgramaIds, setTiposProgramaIds] = useState({ regular: '', campesena: '' });
-
-  // Programa seleccionado con sus metadatos (duración, horario sugerido)
   const [programaSeleccionado, setProgramaSeleccionado] = useState(null);
-
   const [formData, setFormData] = useState({
     programa_formacion: '',
     modalidad: '',
@@ -205,19 +237,14 @@ const CrearOferta = ({ onOfertaCreada }) => {
     }
   }, [tiposPrograma]);
 
-  // ── Cuando cambia el programa seleccionado: poblar horario sugerido ──
   const handleProgramaChange = (programaId) => {
     const programa = programas.find(p => p._id === programaId);
     setProgramaSeleccionado(programa || null);
 
     setFormData(prev => {
       const nuevoHorario = { ...prev.horario };
-
-      // Si el programa trae hora_inicio / hora_fin los pre-cargamos
       if (programa?.hora_inicio) nuevoHorario.hora_inicio = programa.hora_inicio;
       if (programa?.hora_fin)    nuevoHorario.hora_fin    = programa.hora_fin;
-
-      // Limpiar fecha fin para que se recalcule
       return {
         ...prev,
         programa_formacion: programaId,
@@ -227,13 +254,10 @@ const CrearOferta = ({ onOfertaCreada }) => {
     });
   };
 
-  // ── Recalcular fecha fin automáticamente cuando cambien días, fecha inicio u horario ──
   useEffect(() => {
     if (modo !== 'regular') return;
-
     const duracion = programaSeleccionado?.duracion_maxima || programaSeleccionado?.duracion_horas || programaSeleccionado?.horas || 0;
     if (!duracion) return;
-
     const nuevaFechaFin = calcularFechaFin(
       formData.fechas.inicio,
       formData.horario.dias,
@@ -241,7 +265,6 @@ const CrearOferta = ({ onOfertaCreada }) => {
       formData.horario.hora_fin,
       duracion
     );
-
     if (nuevaFechaFin && nuevaFechaFin !== formData.fechas.fin) {
       setFormData(prev => ({ ...prev, fechas: { ...prev.fechas, fin: nuevaFechaFin } }));
     }
@@ -275,7 +298,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
   };
 
   const mostrarAlertaValidacion = (mensaje) => {
-    Swal.fire({ icon: 'warning', title: 'Campo requerido', text: mensaje, timer: 3000, showConfirmButton: true, confirmButtonColor: '#3498db' });
+    Swal.fire({ icon: 'warning', title: 'Campo requerido', text: mensaje, timer: 3000, showConfirmButton: true, confirmButtonColor: T.primary });
   };
 
   const crearNuevaEmpresa = async () => {
@@ -315,19 +338,10 @@ const CrearOferta = ({ onOfertaCreada }) => {
     const { name, files } = e.target;
     if (files && files[0]) {
       const file = files[0];
-      // La firma digital debe ser imagen PNG/JPG para renderizarse en el PDF generado.
-      // La carta sigue siendo PDF.
       if (name === 'firma_digital_pdf') {
         const tiposValidos = ['image/png', 'image/jpeg', 'image/jpg'];
         if (!tiposValidos.includes(file.type)) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Formato incorrecto',
-            text: 'La firma digital debe ser una imagen PNG o JPG',
-            timer: 3500,
-            showConfirmButton: true,
-            confirmButtonColor: '#3498db'
-          });
+          Swal.fire({ icon: 'error', title: 'Formato incorrecto', text: 'La firma digital debe ser una imagen PNG o JPG', timer: 3500, showConfirmButton: true, confirmButtonColor: T.primary });
           e.target.value = '';
           return;
         }
@@ -450,454 +464,462 @@ const CrearOferta = ({ onOfertaCreada }) => {
   const duracionPrograma = programaSeleccionado?.duracion_maxima || programaSeleccionado?.duracion_horas || programaSeleccionado?.horas || null;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={styles.title}>
-          {modo === 'regular' ? '📋 Crear Oferta Regular' : '🌱 Crear Oferta Campesena'}
-        </h2>
-        <button onClick={() => setModo(null)} style={styles.cambiarModoButton}>← Volver</button>
-      </div>
-
-      <form onSubmit={handleSubmit} style={styles.form}>
-
-        {/* ── PROGRAMA DE FORMACIÓN ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Programa de Formación</h3>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Programa:</label>
-            <Autocomplete
-              opciones={programas}
-              valorId={formData.programa_formacion}
-              onChange={handleProgramaChange}
-              placeholder="Escribe nombre o código del programa..."
-              displayFn={(p) => `${p.nombre_programa} - ${p.codigo}`}
-              required
-            />
-          </div>
-
-          {/* Tarjeta de info del programa seleccionado */}
-          {programaSeleccionado && (
-            <div style={styles.programaInfoCard}>
-              <div style={styles.programaInfoGrid}>
-                <div style={styles.programaInfoItem}>
-                  <span style={styles.programaInfoLabel}>⏱ Duración total</span>
-                  <span style={styles.programaInfoValue}>
-                    {duracionPrograma
-                      ? `${duracionPrograma} horas`
-                      : <span style={{ color: '#f59e0b', fontSize: 13 }}>No registrada</span>
-                    }
-                  </span>
-                </div>
-                {programaSeleccionado.hora_inicio && (
-                  <div style={styles.programaInfoItem}>
-                    <span style={styles.programaInfoLabel}>🕐 Horario sugerido</span>
-                    <span style={styles.programaInfoValue}>
-                      {programaSeleccionado.hora_inicio} – {programaSeleccionado.hora_fin}
-                    </span>
-                  </div>
-                )}
-                <div style={styles.programaInfoItem}>
-                  <span style={styles.programaInfoLabel}>📌 Código</span>
-                  <span style={styles.programaInfoValue}>{programaSeleccionado.codigo}</span>
-                </div>
-              </div>
-              {!duracionPrograma && (
-                <div style={styles.programaInfoWarning}>
-                  ⚠️ Este programa no tiene duración registrada. La fecha fin no se calculará automáticamente.
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Modalidad:</label>
-            <select name="modalidad" value={formData.modalidad} onChange={handleChange} style={styles.select} required>
-              <option value="">Seleccione...</option>
-              {modalidades.map(mod => <option key={mod._id} value={mod._id}>{mod.nombre}</option>)}
-            </select>
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Tipo de Oferta:</label>
-            <select name="tipo_oferta" value={formData.tipo_oferta} onChange={handleChange} style={styles.select} required>
-              <option value="">Seleccione...</option>
-              {tiposOferta.map(to => <option key={to._id} value={to._id}>{to.nombre}</option>)}
-            </select>
-          </div>
+    <>
+      <style>{CSS}</style>
+      <div style={styles.container}>
+        <div style={styles.header}>
+          <h2 style={styles.title}>
+            {modo === 'regular' ? '📋 Crear Oferta Regular' : '🌱 Crear Oferta Campesena'}
+          </h2>
+          <button onClick={() => setModo(null)} style={styles.cambiarModoButton}>← Volver</button>
         </div>
 
-        {/* ── CUPOS ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Cupos</h3>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Cupo Máximo:</label>
-            <input type="number" name="cupo_maximo" value={formData.cupo_maximo} onChange={handleChange} style={styles.input} placeholder="30" min="1" required />
-          </div>
-        </div>
-
-        {/* ── AMBIENTE ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Modelo de Ambiente</h3>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Nombre del Ambiente:</label>
-            <input type="text" name="ambiente.nombre" value={formData.ambiente.nombre} onChange={handleChange} style={styles.input} placeholder="Ej: Aula 101" required />
-          </div>
-        </div>
-
-        {/* ── HORARIO (solo regular) — va ANTES de fechas para que los días alimenten el cálculo ── */}
-        {modo === 'regular' && (
+        <form onSubmit={handleSubmit} style={styles.form}>
+          {/* ── PROGRAMA DE FORMACIÓN ── */}
           <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Horario</h3>
-            <HorarioPicker
-              horario={formData.horario}
-              fechaInicio={formData.fechas.inicio}
-              fechaFin={formData.fechas.fin}
-              duracionHoras={duracionPrograma}
-              onChange={(nuevoHorario) => setFormData(prev => ({ ...prev, horario: nuevoHorario }))}
-            />
-          </div>
-        )}
+            <h3 style={styles.sectionTitle}>Programa de Formación</h3>
 
-        {/* ── FECHAS ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Fechas</h3>
-
-          <div style={styles.row}>
-            <div style={styles.half}>
-              <label style={styles.label}>Fecha Inicio:</label>
-              <input
-                type="date"
-                name="fechas.inicio"
-                value={formData.fechas.inicio}
-                onChange={handleChange}
-                style={styles.input}
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Programa:</label>
+              <Autocomplete
+                opciones={programas}
+                valorId={formData.programa_formacion}
+                onChange={handleProgramaChange}
+                placeholder="Escribe nombre o código del programa..."
+                displayFn={(p) => `${p.nombre_programa} - ${p.codigo}`}
                 required
               />
             </div>
-            <div style={styles.half}>
-              <label style={styles.label}>Fecha Fin:</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="date"
-                  name="fechas.fin"
-                  value={formData.fechas.fin}
-                  onChange={handleChange}
-                  style={{
-                    ...styles.input,
-                    ...(formData.fechas.fin && modo === 'regular' && duracionPrograma
-                      ? styles.inputCalculado
-                      : {})
-                  }}
-                  required
-                />
-                {formData.fechas.fin && modo === 'regular' && duracionPrograma && (
-                  <span style={styles.badgeCalculado}>✦ calculada</span>
+
+            {programaSeleccionado && (
+              <div style={styles.programaInfoCard}>
+                <div style={styles.programaInfoGrid}>
+                  <div style={styles.programaInfoItem}>
+                    <span style={styles.programaInfoLabel}>⏱ Duración total</span>
+                    <span style={styles.programaInfoValue}>
+                      {duracionPrograma
+                        ? `${duracionPrograma} horas`
+                        : <span style={{ color: T.warning, fontSize: 13 }}>No registrada</span>
+                      }
+                    </span>
+                  </div>
+                  {programaSeleccionado.hora_inicio && (
+                    <div style={styles.programaInfoItem}>
+                      <span style={styles.programaInfoLabel}>🕐 Horario sugerido</span>
+                      <span style={styles.programaInfoValue}>
+                        {programaSeleccionado.hora_inicio} – {programaSeleccionado.hora_fin}
+                      </span>
+                    </div>
+                  )}
+                  <div style={styles.programaInfoItem}>
+                    <span style={styles.programaInfoLabel}>📌 Código</span>
+                    <span style={styles.programaInfoValue}>{programaSeleccionado.codigo}</span>
+                  </div>
+                </div>
+                {!duracionPrograma && (
+                  <div style={styles.programaInfoWarning}>
+                    ⚠️ Este programa no tiene duración registrada. La fecha fin no se calculará automáticamente.
+                  </div>
                 )}
               </div>
-              {modo === 'regular' && duracionPrograma && !formData.fechas.fin && formData.fechas.inicio && formData.horario.dias.length === 0 && (
-                <small style={styles.fechaHint}>Selecciona días en el horario para calcular la fecha fin</small>
-              )}
-              {modo === 'regular' && duracionPrograma && !formData.fechas.fin && formData.fechas.inicio && formData.horario.dias.length > 0 && (
-                <small style={{ ...styles.fechaHint, color: '#f59e0b' }}>Calculando...</small>
-              )}
+            )}
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Modalidad:</label>
+              <select name="modalidad" value={formData.modalidad} onChange={handleChange} style={styles.select} required>
+                <option value="">Seleccione...</option>
+                {modalidades.map(mod => <option key={mod._id} value={mod._id}>{mod.nombre}</option>)}
+              </select>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Tipo de Oferta:</label>
+              <select name="tipo_oferta" value={formData.tipo_oferta} onChange={handleChange} style={styles.select} required>
+                <option value="">Seleccione...</option>
+                {tiposOferta.map(to => <option key={to._id} value={to._id}>{to.nombre}</option>)}
+              </select>
             </div>
           </div>
 
-          {/* Resumen de duración si está todo completo */}
-          {modo === 'regular' && formData.fechas.inicio && formData.fechas.fin && duracionPrograma && (
-            <div style={styles.duracionResumen}>
-              <span>📅</span>
-              <span>
-                <strong>{duracionPrograma} horas</strong> distribuidas en{' '}
-                <strong>{formData.horario.dias.length} día(s)/semana</strong> —{' '}
-                {formData.horario.hora_inicio} a {formData.horario.hora_fin}
-              </span>
+          {/* ── CUPOS ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Cupos</h3>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Cupo Máximo:</label>
+              <input type="number" name="cupo_maximo" value={formData.cupo_maximo} onChange={handleChange} style={styles.input} placeholder="30" min="1" required />
+            </div>
+          </div>
+
+          {/* ── AMBIENTE ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Modelo de Ambiente</h3>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Nombre del Ambiente:</label>
+              <input type="text" name="ambiente.nombre" value={formData.ambiente.nombre} onChange={handleChange} style={styles.input} placeholder="Ej: Aula 101" required />
+            </div>
+          </div>
+
+          {/* ── HORARIO (solo regular) ── */}
+          {modo === 'regular' && (
+            <div style={styles.section}>
+              <h3 style={styles.sectionTitle}>Horario</h3>
+              <HorarioPicker
+                horario={formData.horario}
+                fechaInicio={formData.fechas.inicio}
+                fechaFin={formData.fechas.fin}
+                duracionHoras={duracionPrograma}
+                onChange={(nuevoHorario) => setFormData(prev => ({ ...prev, horario: nuevoHorario }))}
+              />
             </div>
           )}
-        </div>
 
-        {/* ── UBICACIÓN ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Ubicación</h3>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Departamento:</label>
-            <input type="text" name="ubicacion.departamento" value={formData.ubicacion.departamento} onChange={handleChange} style={styles.input} placeholder="Cauca" required />
-          </div>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Municipio:</label>
-            <Autocomplete
-              opciones={municipios}
-              valorId={formData.ubicacion.municipio}
-              onChange={(id) => setFormData({ ...formData, ubicacion: { ...formData.ubicacion, municipio: id } })}
-              placeholder="Escribe el nombre del municipio..."
-              displayFn={(m) => m.nombre}
-              required
-            />
-          </div>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Dirección:</label>
-            <input type="text" name="ubicacion.direccion" value={formData.ubicacion.direccion} onChange={handleChange} style={styles.input} placeholder="Calle 123 #45-67, Barrio Centro" required />
-          </div>
-        </div>
+          {/* ── FECHAS ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Fechas</h3>
 
-        {/* ── DATOS DEL INSTRUCTOR ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Datos del Instructor</h3>
-          <div style={styles.row}>
-            <div style={styles.half}>
-              <label style={styles.label}>Nombre completo</label>
-              <input type="text" value={`${formData.instructor.nombre || ''} ${formData.instructor.apellido || ''}`.trim()} style={styles.input} readOnly />
-            </div>
-            <div style={styles.half}>
-              <label style={styles.label}>Correo electrónico</label>
-              <input type="email" value={formData.instructor.correoElectronico || ''} style={styles.input} readOnly />
-            </div>
-          </div>
-          <div style={styles.row}>
-            <div style={styles.half}>
-              <label style={styles.label}>Tipo de documento</label>
-              <input type="text" value={typeof formData.instructor.tipoIdentificacion === 'object' ? formData.instructor.tipoIdentificacion?.nombre || '' : formData.instructor.tipoIdentificacion || ''} style={styles.input} readOnly />
-            </div>
-            <div style={styles.half}>
-              <label style={styles.label}>Documento</label>
-              <input type="text" value={formData.instructor.numeroIdentificacion || ''} style={styles.input} readOnly />
-            </div>
-          </div>
-        </div>
-
-        {/* ── EMPRESA SOLICITANTE ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Empresa Solicitante</h3>
-
-          {!mostrarFormularioEmpresa ? (
-            <>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Seleccionar Empresa:</label>
-                <select name="empresa_solicitante" value={formData.empresa_solicitante} onChange={handleChange} style={styles.select} required>
-                  <option value="">Seleccione una empresa...</option>
-                  {empresas.map(emp => <option key={emp._id} value={emp._id}>{emp.nombre} - NIT: {emp.nit}</option>)}
-                </select>
+            <div style={styles.row}>
+              <div style={styles.half}>
+                <label style={styles.label}>Fecha Inicio:</label>
+                <input
+                  type="date"
+                  name="fechas.inicio"
+                  value={formData.fechas.inicio}
+                  onChange={handleChange}
+                  style={styles.input}
+                  required
+                />
               </div>
-              <button type="button" onClick={() => setMostrarFormularioEmpresa(true)} style={styles.secondaryButton}>
-                ➕ Crear Nueva Empresa
-              </button>
-            </>
-          ) : (
-            <div style={styles.subSection}>
-              <h4 style={styles.subSectionTitle}>Nueva Empresa</h4>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Nombre de la Empresa:</label>
-                <input type="text" name="nombre" value={nuevaEmpresa.nombre} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Nombre de la empresa" />
-              </div>
-              <div style={styles.row}>
-                <div style={styles.half}>
-                  <label style={styles.label}>NIT:</label>
-                  <input type="text" name="nit" value={nuevaEmpresa.nit} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="123456789-0" />
+              <div style={styles.half}>
+                <label style={styles.label}>Fecha Fin:</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="date"
+                    name="fechas.fin"
+                    value={formData.fechas.fin}
+                    onChange={handleChange}
+                    style={{
+                      ...styles.input,
+                      ...(formData.fechas.fin && modo === 'regular' && duracionPrograma
+                        ? styles.inputCalculado
+                        : {})
+                    }}
+                    required
+                  />
+                  {formData.fechas.fin && modo === 'regular' && duracionPrograma && (
+                    <span style={styles.badgeCalculado}>✦ calculada</span>
+                  )}
                 </div>
-                <div style={styles.half}>
-                  <label style={styles.label}>Fecha Creación:</label>
-                  <input type="date" name="fecha_creacion" value={nuevaEmpresa.fecha_creacion} onChange={handleNuevaEmpresaChange} style={styles.input} />
-                </div>
+                {modo === 'regular' && duracionPrograma && !formData.fechas.fin && formData.fechas.inicio && formData.horario.dias.length === 0 && (
+                  <small style={styles.fechaHint}>Selecciona días en el horario para calcular la fecha fin</small>
+                )}
+                {modo === 'regular' && duracionPrograma && !formData.fechas.fin && formData.fechas.inicio && formData.horario.dias.length > 0 && (
+                  <small style={{ ...styles.fechaHint, color: T.accent }}>Calculando...</small>
+                )}
               </div>
-              <div style={styles.row}>
-                <div style={styles.half}>
-                  <label style={styles.label}>Tipo de Empresa:</label>
-                  <select name="tipo_empresa" value={nuevaEmpresa.tipo_empresa} onChange={handleNuevaEmpresaChange} style={styles.select}>
-                    <option value="Privada">Privada</option>
-                    <option value="Pública">Pública</option>
-                    <option value="Mixta">Mixta</option>
-                    <option value="ONG">ONG</option>
-                    <option value="Fundación">Fundación</option>
-                    <option value="Cooperativa">Cooperativa</option>
-                    <option value="Otro">Otro</option>
+            </div>
+
+            {modo === 'regular' && formData.fechas.inicio && formData.fechas.fin && duracionPrograma && (
+              <div style={styles.duracionResumen}>
+                <span>📅</span>
+                <span>
+                  <strong>{duracionPrograma} horas</strong> distribuidas en{' '}
+                  <strong>{formData.horario.dias.length} día(s)/semana</strong> —{' '}
+                  {formData.horario.hora_inicio} a {formData.horario.hora_fin}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ── UBICACIÓN ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Ubicación</h3>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Departamento:</label>
+              <input type="text" name="ubicacion.departamento" value={formData.ubicacion.departamento} onChange={handleChange} style={styles.input} placeholder="Cauca" required />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Municipio:</label>
+              <Autocomplete
+                opciones={municipios}
+                valorId={formData.ubicacion.municipio}
+                onChange={(id) => setFormData({ ...formData, ubicacion: { ...formData.ubicacion, municipio: id } })}
+                placeholder="Escribe el nombre del municipio..."
+                displayFn={(m) => m.nombre}
+                required
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Dirección:</label>
+              <input type="text" name="ubicacion.direccion" value={formData.ubicacion.direccion} onChange={handleChange} style={styles.input} placeholder="Calle 123 #45-67, Barrio Centro" required />
+            </div>
+          </div>
+
+          {/* ── DATOS DEL INSTRUCTOR ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Datos del Instructor</h3>
+            <div style={styles.row}>
+              <div style={styles.half}>
+                <label style={styles.label}>Nombre completo</label>
+                <input type="text" value={`${formData.instructor.nombre || ''} ${formData.instructor.apellido || ''}`.trim()} style={styles.input} readOnly />
+              </div>
+              <div style={styles.half}>
+                <label style={styles.label}>Correo electrónico</label>
+                <input type="email" value={formData.instructor.correoElectronico || ''} style={styles.input} readOnly />
+              </div>
+            </div>
+            <div style={styles.row}>
+              <div style={styles.half}>
+                <label style={styles.label}>Tipo de documento</label>
+                <input type="text" value={typeof formData.instructor.tipoIdentificacion === 'object' ? formData.instructor.tipoIdentificacion?.nombre || '' : formData.instructor.tipoIdentificacion || ''} style={styles.input} readOnly />
+              </div>
+              <div style={styles.half}>
+                <label style={styles.label}>Documento</label>
+                <input type="text" value={formData.instructor.numeroIdentificacion || ''} style={styles.input} readOnly />
+              </div>
+            </div>
+          </div>
+
+          {/* ── EMPRESA SOLICITANTE ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Empresa Solicitante</h3>
+
+            {!mostrarFormularioEmpresa ? (
+              <>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Seleccionar Empresa:</label>
+                  <select name="empresa_solicitante" value={formData.empresa_solicitante} onChange={handleChange} style={styles.select} required>
+                    <option value="">Seleccione una empresa...</option>
+                    {empresas.map(emp => <option key={emp._id} value={emp._id}>{emp.nombre} - NIT: {emp.nit}</option>)}
                   </select>
                 </div>
-                <div style={styles.half}>
-                  <label style={styles.label}>Dirección:</label>
-                  <input type="text" name="direccion" value={nuevaEmpresa.direccion} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Dirección completa" />
-                </div>
-              </div>
-
-              <h4 style={styles.subSectionTitle}>Representante Legal</h4>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Nombre Completo:</label>
-                <input type="text" name="representante_legal.nombre_completo" value={nuevaEmpresa.representante_legal.nombre_completo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Nombre completo del representante" />
-              </div>
-              <div style={styles.row}>
-                <div style={styles.half}>
-                  <label style={styles.label}>Documento:</label>
-                  <input type="text" name="representante_legal.documento_identidad" value={nuevaEmpresa.representante_legal.documento_identidad} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Documento de identidad" />
-                </div>
-                <div style={styles.half}>
-                  <label style={styles.label}>Teléfono:</label>
-                  <input type="text" name="representante_legal.telefono" value={nuevaEmpresa.representante_legal.telefono} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Teléfono" />
-                </div>
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Correo:</label>
-                <input type="email" name="representante_legal.correo" value={nuevaEmpresa.representante_legal.correo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="correo@ejemplo.com" />
-              </div>
-
-              <h4 style={styles.subSectionTitle}>Contacto en la Empresa</h4>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Nombre Completo:</label>
-                <input type="text" name="contacto.nombre_completo" value={nuevaEmpresa.contacto.nombre_completo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Nombre del contacto" />
-              </div>
-              <div style={styles.row}>
-                <div style={styles.half}>
-                  <label style={styles.label}>Cargo:</label>
-                  <input type="text" name="contacto.cargo" value={nuevaEmpresa.contacto.cargo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Cargo del contacto" />
-                </div>
-                <div style={styles.half}>
-                  <label style={styles.label}>Teléfono:</label>
-                  <input type="text" name="contacto.telefono" value={nuevaEmpresa.contacto.telefono} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Teléfono del contacto" />
-                </div>
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Correo:</label>
-                <input type="email" name="contacto.correo" value={nuevaEmpresa.contacto.correo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="correo@ejemplo.com" />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Número de Empleados:</label>
-                <input type="number" name="numero_empleados" value={nuevaEmpresa.numero_empleados} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Ej: 50" min="1" />
-              </div>
-
-              <div style={styles.buttonGroup}>
-                <button type="button" onClick={crearNuevaEmpresa} style={styles.successButton} disabled={loading}>
-                  {loading ? 'Guardando...' : 'Guardar Empresa'}
+                <button type="button" onClick={() => setMostrarFormularioEmpresa(true)} style={styles.secondaryButton}>
+                  ➕ Crear Nueva Empresa
                 </button>
-                <button type="button" onClick={() => setMostrarFormularioEmpresa(false)} style={styles.cancelButton}>Cancelar</button>
+              </>
+            ) : (
+              <div style={styles.subSection}>
+                <h4 style={styles.subSectionTitle}>Nueva Empresa</h4>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Nombre de la Empresa:</label>
+                  <input type="text" name="nombre" value={nuevaEmpresa.nombre} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Nombre de la empresa" />
+                </div>
+                <div style={styles.row}>
+                  <div style={styles.half}>
+                    <label style={styles.label}>NIT:</label>
+                    <input type="text" name="nit" value={nuevaEmpresa.nit} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="123456789-0" />
+                  </div>
+                  <div style={styles.half}>
+                    <label style={styles.label}>Fecha Creación:</label>
+                    <input type="date" name="fecha_creacion" value={nuevaEmpresa.fecha_creacion} onChange={handleNuevaEmpresaChange} style={styles.input} />
+                  </div>
+                </div>
+                <div style={styles.row}>
+                  <div style={styles.half}>
+                    <label style={styles.label}>Tipo de Empresa:</label>
+                    <select name="tipo_empresa" value={nuevaEmpresa.tipo_empresa} onChange={handleNuevaEmpresaChange} style={styles.select}>
+                      <option value="Privada">Privada</option>
+                      <option value="Pública">Pública</option>
+                      <option value="Mixta">Mixta</option>
+                      <option value="ONG">ONG</option>
+                      <option value="Fundación">Fundación</option>
+                      <option value="Cooperativa">Cooperativa</option>
+                      <option value="Otro">Otro</option>
+                    </select>
+                  </div>
+                  <div style={styles.half}>
+                    <label style={styles.label}>Dirección:</label>
+                    <input type="text" name="direccion" value={nuevaEmpresa.direccion} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Dirección completa" />
+                  </div>
+                </div>
+
+                <h4 style={styles.subSectionTitle}>Representante Legal</h4>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Nombre Completo:</label>
+                  <input type="text" name="representante_legal.nombre_completo" value={nuevaEmpresa.representante_legal.nombre_completo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Nombre completo del representante" />
+                </div>
+                <div style={styles.row}>
+                  <div style={styles.half}>
+                    <label style={styles.label}>Documento:</label>
+                    <input type="text" name="representante_legal.documento_identidad" value={nuevaEmpresa.representante_legal.documento_identidad} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Documento de identidad" />
+                  </div>
+                  <div style={styles.half}>
+                    <label style={styles.label}>Teléfono:</label>
+                    <input type="text" name="representante_legal.telefono" value={nuevaEmpresa.representante_legal.telefono} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Teléfono" />
+                  </div>
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Correo:</label>
+                  <input type="email" name="representante_legal.correo" value={nuevaEmpresa.representante_legal.correo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="correo@ejemplo.com" />
+                </div>
+
+                <h4 style={styles.subSectionTitle}>Contacto en la Empresa</h4>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Nombre Completo:</label>
+                  <input type="text" name="contacto.nombre_completo" value={nuevaEmpresa.contacto.nombre_completo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Nombre del contacto" />
+                </div>
+                <div style={styles.row}>
+                  <div style={styles.half}>
+                    <label style={styles.label}>Cargo:</label>
+                    <input type="text" name="contacto.cargo" value={nuevaEmpresa.contacto.cargo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Cargo del contacto" />
+                  </div>
+                  <div style={styles.half}>
+                    <label style={styles.label}>Teléfono:</label>
+                    <input type="text" name="contacto.telefono" value={nuevaEmpresa.contacto.telefono} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Teléfono del contacto" />
+                  </div>
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Correo:</label>
+                  <input type="email" name="contacto.correo" value={nuevaEmpresa.contacto.correo} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="correo@ejemplo.com" />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Número de Empleados:</label>
+                  <input type="number" name="numero_empleados" value={nuevaEmpresa.numero_empleados} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Ej: 50" min="1" />
+                </div>
+
+                <div style={styles.buttonGroup}>
+                  <button type="button" onClick={crearNuevaEmpresa} style={styles.successButton} disabled={loading}>
+                    {loading ? 'Guardando...' : 'Guardar Empresa'}
+                  </button>
+                  <button type="button" onClick={() => setMostrarFormularioEmpresa(false)} style={styles.cancelButton}>Cancelar</button>
+                </div>
               </div>
+            )}
+          </div>
+
+          {/* ── SUBSECTOR ECONÓMICO ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Subsector Económico</h3>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Nombre:</label>
+              <input type="text" name="subsector_economico.nombre" value={formData.subsector_economico.nombre} onChange={handleChange} style={styles.input} placeholder="Ej: Tecnologías de la Información" required />
             </div>
+          </div>
+
+          {/* ── PROGRAMA ESPECIAL ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Programa Especial</h3>
+            <div style={styles.formGroup}>
+              <select name="programa_especial" value={formData.programa_especial} onChange={handleChange} style={styles.select}>
+                <option value="">Ninguno</option>
+                {programasEspeciales.map(pe => <option key={pe._id} value={pe._id}>{pe.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* ── CONVENIO ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Convenio</h3>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Nombre del Convenio:</label>
+              <input type="text" name="convenio.nombre" value={formData.convenio.nombre} onChange={handleChange} style={styles.input} placeholder="Nombre del convenio" required />
+            </div>
+          </div>
+
+          {/* ── FORMULARIO CAMPESENA ── */}
+          {modo === 'campesena' && (
+            <FormularioCampesenaCompleto formData={formData} setFormData={setFormData} />
           )}
-        </div>
 
-        {/* ── SUBSECTOR ECONÓMICO ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Subsector Económico</h3>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Nombre:</label>
-            <input type="text" name="subsector_economico.nombre" value={formData.subsector_economico.nombre} onChange={handleChange} style={styles.input} placeholder="Ej: Tecnologías de la Información" required />
-          </div>
-        </div>
-
-        {/* ── PROGRAMA ESPECIAL ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Programa Especial</h3>
-          <div style={styles.formGroup}>
-            <select name="programa_especial" value={formData.programa_especial} onChange={handleChange} style={styles.select}>
-              <option value="">Ninguno</option>
-              {programasEspeciales.map(pe => <option key={pe._id} value={pe._id}>{pe.nombre}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* ── CONVENIO ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Convenio</h3>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Nombre del Convenio:</label>
-            <input type="text" name="convenio.nombre" value={formData.convenio.nombre} onChange={handleChange} style={styles.input} placeholder="Nombre del convenio" required />
-          </div>
-        </div>
-
-        {/* ── FORMULARIO CAMPESENA ── */}
-        {modo === 'campesena' && (
-          <FormularioCampesenaCompleto formData={formData} setFormData={setFormData} />
-        )}
-
-        {/* ── ARCHIVOS PDF ── */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Documentos Adjuntos</h3>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Firma Digital (PDF):</label>
-            <div style={styles.fileInputGroup}>
-              <input type="file" id="firma_digital_pdf" name="firma_digital_pdf" onChange={handleFileChange} style={styles.fileInput} accept=".png,.jpg,.jpeg" />
-              {formData.firma_digital_pdf && (
-                <div style={styles.fileInfo}>
-                  <span style={styles.fileName}>{formData.firma_digital_pdf.name}</span>
-                  <button type="button" onClick={() => { document.getElementById('firma_digital_pdf').value = ''; setFormData({ ...formData, firma_digital_pdf: null }); }} style={styles.removeFileButton}>✕</button>
-                </div>
-              )}
+          {/* ── ARCHIVOS PDF ── */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Documentos Adjuntos</h3>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Firma Digital (imagen):</label>
+              <div style={styles.fileInputGroup}>
+                <input type="file" id="firma_digital_pdf" name="firma_digital_pdf" onChange={handleFileChange} style={styles.fileInput} accept=".png,.jpg,.jpeg" />
+                {formData.firma_digital_pdf && (
+                  <div style={styles.fileInfo}>
+                    <span style={styles.fileName}>{formData.firma_digital_pdf.name}</span>
+                    <button type="button" onClick={() => { document.getElementById('firma_digital_pdf').value = ''; setFormData({ ...formData, firma_digital_pdf: null }); }} style={styles.removeFileButton}>✕</button>
+                  </div>
+                )}
+              </div>
+              <small style={styles.fileHint}>Imagen PNG o JPG de la firma digital</small>
             </div>
-            <small style={styles.fileHint}>Imagen PNG o JPG de la firma digital (no PDF)</small>
-          </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Carta (PDF):</label>
-            <div style={styles.fileInputGroup}>
-              <input type="file" id="carta_pdf" name="carta_pdf" onChange={handleFileChange} style={styles.fileInput} accept=".pdf" />
-              {formData.carta_pdf && (
-                <div style={styles.fileInfo}>
-                  <span style={styles.fileName}>{formData.carta_pdf.name}</span>
-                  <button type="button" onClick={() => { document.getElementById('carta_pdf').value = ''; setFormData({ ...formData, carta_pdf: null }); }} style={styles.removeFileButton}>✕</button>
-                </div>
-              )}
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Carta (PDF):</label>
+              <div style={styles.fileInputGroup}>
+                <input type="file" id="carta_pdf" name="carta_pdf" onChange={handleFileChange} style={styles.fileInput} accept=".pdf" />
+                {formData.carta_pdf && (
+                  <div style={styles.fileInfo}>
+                    <span style={styles.fileName}>{formData.carta_pdf.name}</span>
+                    <button type="button" onClick={() => { document.getElementById('carta_pdf').value = ''; setFormData({ ...formData, carta_pdf: null }); }} style={styles.removeFileButton}>✕</button>
+                  </div>
+                )}
+              </div>
+              <small style={styles.fileHint}>Documento PDF de la carta solicitante</small>
             </div>
-            <small style={styles.fileHint}>Documento PDF de la carta solicitante</small>
           </div>
-        </div>
 
-        <button
-          type="submit"
-          style={loading ? { ...styles.submitButton, ...styles.buttonDisabled } : styles.submitButton}
-          disabled={loading}
-        >
-          {loading ? 'Guardando...' : 'Guardar Oferta'}
-        </button>
-      </form>
-    </div>
+          <button
+            type="submit"
+            style={loading ? { ...styles.submitButton, ...styles.buttonDisabled } : styles.submitButton}
+            disabled={loading}
+          >
+            {loading ? 'Guardando...' : 'Guardar Oferta'}
+          </button>
+        </form>
+      </div>
+    </>
   );
 };
 
-// ===== ESTILOS =====
+// ===== ESTILOS MEJORADOS (con tokens) =====
 const styles = {
   container: {
-    maxWidth: '860px',
+    maxWidth: '920px',
     margin: '0 auto',
-    padding: '28px',
-    backgroundColor: '#f3f6fb',
-    borderRadius: '24px',
-    boxShadow: '0 28px 80px rgba(15, 23, 42, 0.08)'
+    padding: '32px',
+    backgroundColor: T.bg,
+    borderRadius: T.radius.xl,
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: '18px',
-    marginBottom: '34px',
-    flexWrap: 'wrap'
+    gap: '20px',
+    marginBottom: '36px',
+    flexWrap: 'wrap',
   },
   title: {
-    color: '#1f2937',
+    color: T.ink,
     margin: 0,
-    fontSize: '32px',
+    fontSize: '1.8rem',
     fontWeight: 700,
-    letterSpacing: '-0.02em'
+    letterSpacing: '-0.02em',
+    background: `linear-gradient(135deg, ${T.primaryDark}, ${T.secondary})`,
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
   },
   cambiarModoButton: {
-    backgroundColor: '#1d4ed8',
-    color: 'white',
-    padding: '12px 20px',
-    border: 'none',
-    borderRadius: '14px',
+    backgroundColor: T.white,
+    color: T.primary,
+    padding: '10px 22px',
+    border: `1px solid ${T.border}`,
+    borderRadius: T.radius.md,
     fontSize: '14px',
-    fontWeight: 700,
+    fontWeight: 600,
     cursor: 'pointer',
-    boxShadow: '0 10px 25px rgba(59, 130, 246, 0.18)'
+    transition: 'all 0.2s ease',
+    boxShadow: T.shadow.sm,
   },
+  // Autocomplete
   autocompleteWrapper: { position: 'relative', width: '100%' },
   autocompleteInput: {
-    padding: '14px 44px 14px 14px',
-    border: '1px solid #cbd5e1',
-    borderRadius: '16px',
+    padding: '14px 44px 14px 16px',
+    border: `1px solid ${T.border}`,
+    borderRadius: T.radius.md,
     fontSize: '15px',
     outline: 'none',
     width: '100%',
     boxSizing: 'border-box',
-    backgroundColor: 'white',
-    transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+    backgroundColor: T.white,
+    transition: 'all 0.2s',
+    fontFamily: 'inherit',
   },
   autocompleteIcon: {
     position: 'absolute',
@@ -905,224 +927,240 @@ const styles = {
     top: '50%',
     transform: 'translateY(-50%)',
     fontSize: '16px',
-    pointerEvents: 'none'
+    pointerEvents: 'none',
+    color: T.muted,
   },
   autocompleteList: {
     position: 'absolute',
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: 'white',
-    border: '1px solid #cbd5e1',
+    backgroundColor: T.white,
+    border: `1px solid ${T.border}`,
     borderTop: 'none',
-    borderRadius: '0 0 16px 16px',
-    maxHeight: '240px',
+    borderRadius: `0 0 ${T.radius.md} ${T.radius.md}`,
+    maxHeight: '260px',
     overflowY: 'auto',
     zIndex: 1000,
     margin: 0,
     padding: 0,
     listStyle: 'none',
-    boxShadow: '0 24px 40px rgba(15, 23, 42, 0.12)'
+    boxShadow: T.shadow.lg,
   },
   autocompleteItem: {
-    padding: '14px 16px',
+    padding: '12px 16px',
     cursor: 'pointer',
-    fontSize: '15px',
-    color: '#334155',
-    borderBottom: '1px solid #eff2f7'
+    fontSize: '14px',
+    color: T.inkLight,
+    borderBottom: `1px solid ${T.border}`,
+    transition: 'background 0.15s',
   },
-  autocompleteItemResaltado: { backgroundColor: '#eff6ff', color: '#1d4ed8' },
+  autocompleteItemResaltado: { backgroundColor: T.primaryLight, color: T.primaryDark },
   autocompleteVacio: {
     position: 'absolute',
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: 'white',
-    border: '1px solid #cbd5e1',
+    backgroundColor: T.white,
+    border: `1px solid ${T.border}`,
     borderTop: 'none',
-    borderRadius: '0 0 16px 16px',
-    padding: '12px 14px',
+    borderRadius: `0 0 ${T.radius.md} ${T.radius.md}`,
+    padding: '12px 16px',
     fontSize: '14px',
-    color: '#64748b',
-    zIndex: 1000
+    color: T.muted,
+    zIndex: 1000,
   },
+  // Secciones
   section: {
-    backgroundColor: 'white',
-    padding: '24px',
-    borderRadius: '24px',
-    marginBottom: '0',
-    border: '1px solid #e2e8f0',
-    boxShadow: '0 14px 30px rgba(15, 23, 42, 0.05)'
+    backgroundColor: T.white,
+    padding: '28px',
+    borderRadius: T.radius.lg,
+    marginBottom: '24px',
+    border: `1px solid ${T.border}`,
+    boxShadow: T.shadow.md,
+    transition: 'box-shadow 0.2s ease',
   },
   subSection: {
-    backgroundColor: '#f8fafc',
-    padding: '20px',
-    borderRadius: '18px',
-    marginTop: '14px',
-    border: '1px solid #c7d2fe'
+    backgroundColor: T.bg,
+    padding: '24px',
+    borderRadius: T.radius.md,
+    marginTop: '20px',
+    border: `1px solid ${T.border}`,
   },
   sectionTitle: {
-    color: '#0f172a',
+    color: T.ink,
     marginTop: 0,
-    marginBottom: '20px',
-    fontSize: '20px',
-    borderBottom: '1px solid #dbeafe',
-    paddingBottom: '10px',
-    letterSpacing: '0.01em'
+    marginBottom: '24px',
+    fontSize: '1.3rem',
+    fontWeight: 600,
+    borderLeft: `4px solid ${T.primary}`,
+    paddingLeft: '14px',
+    letterSpacing: '-0.01em',
   },
-  subSectionTitle: { color: '#4338ca', marginTop: 0, marginBottom: '16px', fontSize: '17px' },
-  form: { display: 'flex', flexDirection: 'column', gap: '24px' },
-  formGroup: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' },
-  row: { display: 'flex', gap: '20px', marginBottom: '15px', flexWrap: 'wrap' },
-  half: { flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '240px' },
-  label: { fontSize: '14px', fontWeight: 700, color: '#1e293b' },
+  subSectionTitle: { color: T.secondaryDark, marginTop: 0, marginBottom: '18px', fontSize: '1.1rem', fontWeight: 600 },
+  form: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' },
+  row: { display: 'flex', gap: '20px', marginBottom: '16px', flexWrap: 'wrap' },
+  half: { flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '220px' },
+  label: { fontSize: '13px', fontWeight: 600, color: T.inkLight, textTransform: 'uppercase', letterSpacing: '0.03em' },
   input: {
-    padding: '14px 16px',
-    border: '1px solid #cbd5e1',
-    borderRadius: '14px',
+    padding: '12px 16px',
+    border: `1px solid ${T.border}`,
+    borderRadius: T.radius.sm,
     fontSize: '15px',
     outline: 'none',
-    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-    backgroundColor: 'white',
+    transition: 'all 0.2s',
+    backgroundColor: T.white,
     width: '100%',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
   },
   inputCalculado: {
-    borderColor: '#10b981',
-    backgroundColor: '#f0fdf4',
-    boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.12)'
+    borderColor: T.success,
+    backgroundColor: T.successBg,
+    boxShadow: T.shadow.glow,
   },
   badgeCalculado: {
     position: 'absolute',
     right: '12px',
     top: '50%',
     transform: 'translateY(-50%)',
-    fontSize: '11px',
+    fontSize: '10px',
     fontWeight: 700,
-    color: '#059669',
+    color: T.success,
     background: '#d1fae5',
     padding: '2px 8px',
-    borderRadius: '20px',
-    pointerEvents: 'none'
+    borderRadius: T.radius.full,
+    pointerEvents: 'none',
   },
-  fechaHint: {
-    fontSize: '12px',
-    color: '#64748b',
-    marginTop: '4px'
-  },
+  fechaHint: { fontSize: '12px', color: T.muted, marginTop: '6px' },
   select: {
-    padding: '14px 16px',
-    border: '1px solid #cbd5e1',
-    borderRadius: '14px',
+    padding: '12px 16px',
+    border: `1px solid ${T.border}`,
+    borderRadius: T.radius.sm,
     fontSize: '15px',
-    backgroundColor: 'white',
+    backgroundColor: T.white,
     cursor: 'pointer',
-    transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+    transition: 'all 0.2s',
+    fontFamily: 'inherit',
   },
   programaInfoCard: {
-    backgroundColor: '#f0f9ff',
-    border: '1px solid #bae6fd',
-    borderRadius: '16px',
-    padding: '16px 20px',
-    marginBottom: '16px'
+    backgroundColor: T.primaryLight,
+    border: `1px solid ${T.primary}`,
+    borderRadius: T.radius.md,
+    padding: '18px 22px',
+    marginBottom: '20px',
   },
-  programaInfoGrid: {
-    display: 'flex',
-    gap: '24px',
-    flexWrap: 'wrap'
-  },
-  programaInfoItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px'
-  },
-  programaInfoLabel: {
-    fontSize: '11px',
-    fontWeight: 700,
-    color: '#0369a1',
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em'
-  },
-  programaInfoValue: {
-    fontSize: '15px',
-    fontWeight: 700,
-    color: '#0c4a6e'
-  },
+  programaInfoGrid: { display: 'flex', gap: '28px', flexWrap: 'wrap' },
+  programaInfoItem: { display: 'flex', flexDirection: 'column', gap: '5px' },
+  programaInfoLabel: { fontSize: '11px', fontWeight: 700, color: T.primaryDark, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  programaInfoValue: { fontSize: '15px', fontWeight: 700, color: T.ink },
   programaInfoWarning: {
-    marginTop: '12px',
+    marginTop: '14px',
     fontSize: '12px',
-    color: '#92400e',
-    background: '#fef3c7',
-    border: '1px solid #fde68a',
-    borderRadius: '10px',
-    padding: '8px 12px'
+    color: T.warning,
+    background: T.warningBg,
+    border: `1px solid #fde68a`,
+    borderRadius: '12px',
+    padding: '10px 14px',
   },
   duracionResumen: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    background: '#f0fdf4',
-    border: '1px solid #86efac',
-    borderRadius: '12px',
-    padding: '12px 16px',
+    gap: '12px',
+    background: T.successBg,
+    border: `1px solid #86efac`,
+    borderRadius: T.radius.md,
+    padding: '12px 18px',
     fontSize: '14px',
-    color: '#166534',
-    marginTop: '4px'
+    color: T.success,
+    marginTop: '12px',
   },
-  buttonGroup: { display: 'flex', gap: '14px', marginTop: '22px', flexWrap: 'wrap' },
+  buttonGroup: { display: 'flex', gap: '16px', marginTop: '24px', flexWrap: 'wrap' },
   submitButton: {
-    backgroundColor: '#1d4ed8',
-    color: 'white',
-    padding: '16px',
+    backgroundColor: T.primary,
+    color: T.white,
+    padding: '16px 24px',
     border: 'none',
-    borderRadius: '16px',
+    borderRadius: T.radius.md,
     fontSize: '16px',
     fontWeight: 700,
     cursor: 'pointer',
-    marginTop: '10px',
-    boxShadow: '0 16px 28px rgba(59, 130, 246, 0.2)'
+    marginTop: '16px',
+    transition: 'all 0.2s',
+    boxShadow: T.shadow.lg,
   },
   secondaryButton: {
-    backgroundColor: '#f1f5f9',
-    color: '#1e293b',
-    padding: '12px',
-    border: '1px solid #cbd5e1',
-    borderRadius: '16px',
+    backgroundColor: T.white,
+    color: T.primary,
+    padding: '12px 18px',
+    border: `1px solid ${T.border}`,
+    borderRadius: T.radius.md,
     fontSize: '14px',
-    fontWeight: 700,
+    fontWeight: 600,
     cursor: 'pointer',
-    marginTop: '5px',
-    width: '100%'
+    marginTop: '8px',
+    width: '100%',
+    transition: 'all 0.2s',
   },
   successButton: {
     flex: 1,
-    backgroundColor: '#059669',
-    color: 'white',
-    padding: '14px',
+    backgroundColor: T.success,
+    color: T.white,
+    padding: '12px',
     border: 'none',
-    borderRadius: '16px',
+    borderRadius: T.radius.sm,
     fontSize: '14px',
-    fontWeight: 700,
-    cursor: 'pointer'
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#ef4444',
-    color: 'white',
-    padding: '14px',
+    backgroundColor: T.error,
+    color: T.white,
+    padding: '12px',
     border: 'none',
-    borderRadius: '16px',
+    borderRadius: T.radius.sm,
     fontSize: '14px',
-    fontWeight: 700,
-    cursor: 'pointer'
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
   },
-  buttonDisabled: { backgroundColor: '#94a3b8', cursor: 'not-allowed' },
+  buttonDisabled: { backgroundColor: T.muted, cursor: 'not-allowed', opacity: 0.7 },
   fileInputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  fileInfo: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', backgroundColor: '#eef2ff', borderRadius: '14px' },
-  fileName: { fontSize: '14px', color: '#1e293b', flex: 1 },
-  removeFileButton: { backgroundColor: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', padding: '0 5px' },
-  fileHint: { fontSize: '13px', color: '#475569', marginTop: '4px' },
-  fileInput: { fontSize: '14px' }
+  fileInfo: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: T.primaryLight, borderRadius: T.radius.md },
+  fileName: { fontSize: '14px', color: T.ink, flex: 1, wordBreak: 'break-all' },
+  removeFileButton: { backgroundColor: 'transparent', border: 'none', color: T.error, cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', padding: '0 6px' },
+  fileHint: { fontSize: '12px', color: T.muted, marginTop: '6px' },
+  fileInput: { fontSize: '14px', fontFamily: 'inherit' },
 };
+
+// CSS global para fuentes y efectos hover
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+
+  * {
+    box-sizing: border-box;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: ${T.borderFocus} !important;
+    box-shadow: 0 0 0 3px rgba(15, 110, 86, 0.12) !important;
+    outline: none;
+  }
+
+  button {
+    transition: transform 0.1s ease, background 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  button:active {
+    transform: scale(0.98);
+  }
+
+  .fc-root button:active {
+    transform: scale(0.98);
+  }
+`;
 
 export default CrearOferta;
