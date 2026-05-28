@@ -1,8 +1,10 @@
 const CreacionOferta = require('../models/CreacionOferta');
-const Instructor = require('../models/Instructor'); 
+const Instructor = require('../models/Instructor');
+const Inscripcion = require('../models/Inscripcion');
+const SolicitudValidacion = require('../models/SolicitudValidacion');
 const { generarFichaCaracterizacion } = require('../services/pdfGenerator');
 const fs = require('fs');
-const EstadoOferta = require('../models/EstadoOferta'); 
+const EstadoOferta = require('../models/EstadoOferta');
 const { exportarExcelOferta } = require('../services/exportarExcelOferta');
 
 
@@ -784,10 +786,20 @@ const eliminarOferta = async (req, res) => {
     // Eliminar instructores asociados si existen
     await Instructor.deleteMany({ oferta_id: req.params.id });
 
-    // Eliminar el PDF asociado
+    // Eliminar inscripciones asociadas si existen
+    await Inscripcion.deleteMany({ oferta_id: req.params.id });
+
+    // Eliminar solicitudes relacionadas si existen
+    await SolicitudValidacion.deleteMany({ oferta_id: req.params.id });
+
+    // Eliminar archivos asociados
     const pdfPath = path.join(__dirname, '../uploads/fichas', `ficha-${req.params.id}.pdf`);
     if (fs.existsSync(pdfPath)) {
       fs.unlinkSync(pdfPath);
+    }
+
+    if (oferta.carta_pdf && fs.existsSync(oferta.carta_pdf)) {
+      fs.unlinkSync(oferta.carta_pdf);
     }
 
     res.json({

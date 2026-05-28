@@ -474,19 +474,7 @@ const Dashboard = () => {
           {/* Footer */}
           {!collapsed && (
             <div className="app-sidebar__footer">
-              <div className="app-profile">
-                <div className="app-profile__avatar" style={{ background: roleColor }}>
-                  {initials}
-                </div>
-                <div style={{ overflow: 'hidden' }}>
-                  <p className="app-profile__name">{fullName || user?.nombreUsuario || 'Admin'}</p>
-                  <p className="app-profile__role" style={{ color: roleColor, opacity: 1 }}>
-                    {userTipo === 'admin' ? 'Administrador'
-                      : userTipo === 'coordinador' ? 'Coordinador'
-                      : 'Instructor'}
-                  </p>
-                </div>
-              </div>
+             
               <button className="app-logout" onClick={handleLogout}>
                 <Ic.Logout />
                 Cerrar sesión

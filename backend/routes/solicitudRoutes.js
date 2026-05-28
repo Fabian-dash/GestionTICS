@@ -6,6 +6,7 @@ const {
   getMisSolicitudes,
   getSolicitudesPendientes,
   getSolicitudById,
+  eliminarSolicitud,
   rechazarSolicitud,
   aprobarSolicitud,  
   verificarArchivosSolicitud,
@@ -21,6 +22,7 @@ router.get('/mis-solicitudes', protect, getMisSolicitudes);  // ← NUEVA
 
 // Rutas existentes
 router.get('/pendientes', protect, getSolicitudesPendientes);
+router.delete('/:id', protect, eliminarSolicitud);
 router.get('/:id', protect, getSolicitudById);
 router.put('/:id/rechazar', protect, rechazarSolicitud);
 router.get('/:id/archivos', protect, verificarArchivosSolicitud);

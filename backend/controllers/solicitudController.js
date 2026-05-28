@@ -137,6 +137,10 @@ const descargarFicha = async (req, res) => {
       return res.status(404).json({ message: 'Solicitud no encontrada' });
     }
 
+    if (!solicitud.oferta_id) {
+      return res.status(404).json({ message: 'Oferta asociada a la solicitud no encontrada' });
+    }
+
     const ofertaId = solicitud.oferta_id._id;
     const fichaPath = path.join(__dirname, '../uploads/fichas', `ficha-${ofertaId}.pdf`);
     
@@ -159,6 +163,10 @@ const descargarCarta = async (req, res) => {
     const solicitud = await SolicitudValidacion.findById(id).populate('oferta_id');
     if (!solicitud) {
       return res.status(404).json({ message: 'Solicitud no encontrada' });
+    }
+
+    if (!solicitud.oferta_id) {
+      return res.status(404).json({ message: 'Oferta asociada a la solicitud no encontrada' });
     }
 
     const oferta = solicitud.oferta_id;
@@ -189,6 +197,10 @@ const descargarExcel = async (req, res) => {
     const solicitud = await SolicitudValidacion.findById(id).populate('oferta_id');
     if (!solicitud) {
       return res.status(404).json({ message: 'Solicitud no encontrada' });
+    }
+
+    if (!solicitud.oferta_id) {
+      return res.status(404).json({ message: 'Oferta asociada a la solicitud no encontrada' });
     }
 
     const ofertaId = solicitud.oferta_id._id;
@@ -297,6 +309,24 @@ const descargarCedulas = async (req, res) => {
 
 
 // =============================================
+// FUNCIONES DE LIMPIEZA
+// =============================================
+
+const limpiarSolicitudesHuérfanas = async () => {
+  const solicitudes = await SolicitudValidacion.find()
+    .populate('oferta_id', '_id');
+
+  const idsHuérfanos = solicitudes
+    .filter(solicitud => !solicitud.oferta_id)
+    .map(solicitud => solicitud._id);
+
+  if (idsHuérfanos.length > 0) {
+    await SolicitudValidacion.deleteMany({ _id: { $in: idsHuérfanos } });
+    console.log(`🧹 Eliminadas ${idsHuérfanos.length} solicitudes sin oferta asociada`);
+  }
+};
+
+// =============================================
 // FUNCIONES PARA COORDINADORES
 // =============================================
 
@@ -305,6 +335,8 @@ const getSolicitudesPendientes = async (req, res) => {
   try {
     const coordinador = req.usuario;  // ✅ CAMBIADO
     console.log('🔍 Coordinador logueado:', coordinador._id, coordinador.nombre);
+
+    await limpiarSolicitudesHuérfanas();
 
     const solicitudes = await SolicitudValidacion.find({
       coordinador_id: coordinador._id,
@@ -375,6 +407,13 @@ const aprobarSolicitud = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Solicitud no encontrada'
+      });
+    }
+
+    if (!solicitud.oferta_id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Oferta asociada a la solicitud no encontrada'
       });
     }
 
@@ -467,12 +506,21 @@ const getSolicitudById = async (req, res) => {
     })
       .populate({
         path: 'oferta_id',
-        populate: {
-          path: 'programa_formacion',
-          select: 'nombre_programa codigo'
-        }
+        populate: [
+          {
+            path: 'programa_formacion',
+            select: 'nombre_programa codigo nivel_formacion duracion_maxima duracion_etapa_lectiva duracion_etapa_productiva version tipo_programa red_conocimientos'
+          },
+          { path: 'modalidad', select: 'nombre' },
+          { path: 'tipo_oferta', select: 'nombre' },
+          { path: 'tipo_programa', select: 'nombre' },
+          { path: 'programa_especial', select: 'nombre' },
+          { path: 'ubicacion.municipio', select: 'nombre' },
+          { path: 'empresa_solicitante', select: 'nombre' },
+          { path: 'estado', select: 'codigo nombre' }
+        ]
       })
-      .populate('instructor_id', 'nombre apellido correoElectronico');
+      .populate('instructor_id', 'nombre apellido correoElectronico telefono numeroIdentificacion');
 
     if (!solicitud) {
       return res.status(404).json({
@@ -488,6 +536,34 @@ const getSolicitudById = async (req, res) => {
 
   } catch (error) {
     console.error('Error en getSolicitudById:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Coordinador: Eliminar solicitud
+const eliminarSolicitud = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const solicitud = await SolicitudValidacion.findById(id);
+
+    if (!solicitud) {
+      return res.status(404).json({
+        success: false,
+        message: 'Solicitud no encontrada'
+      });
+    }
+
+    await SolicitudValidacion.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: 'Solicitud eliminada correctamente'
+    });
+  } catch (error) {
+    console.error('Error eliminando solicitud:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -662,6 +738,13 @@ const verificarArchivosSolicitud = async (req, res) => {
       });
     }
 
+    if (!solicitud.oferta_id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Oferta asociada a la solicitud no encontrada'
+      });
+    }
+
     const oferta = solicitud.oferta_id;
     const archivos = {
       ficha: false,
@@ -750,6 +833,7 @@ module.exports = {
   // Coordinador
   getSolicitudesPendientes,
   getSolicitudById,
+  eliminarSolicitud,
   rechazarSolicitud,
   aprobarSolicitud,  // ← NUEVA
   verificarArchivosSolicitud,
