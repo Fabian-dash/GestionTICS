@@ -1,311 +1,311 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 
-const LinksInscripcion = () => {
-  const [ofertas, setOfertas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [copiado, setCopiado] = useState(null);
-  const [usuario, setUsuario] = useState(null);
-  const [hoveredCard, setHoveredCard] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null); // id de oferta a eliminar
+/* ─── Paleta SENA institucional ─── */
+const C = {
+  navy:     '#0a1628',
+  navyMid:  '#122040',
+  navyLow:  '#1a2f5a',
+  orange:   '#4caf82',
+  orangeHov:'#3a9b6e',
+  gold:     '#a8e6c8',
+  white:    '#ffffff',
+  offWhite: '#f4f5f7',
+  border:   '#dde2ea',
+  slate:    '#5a6478',
+  slateLight:'#8a93a6',
+  ink:      '#1c2435',
+};
 
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    setUsuario(user);
-    cargarMisOfertas();
-  }, []);
+const LinksInscripcion = () => {
+  const [ofertas, setOfertas]       = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [copiado, setCopiado]       = useState(null);
+  const [selected, setSelected]     = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  useEffect(() => { cargarMisOfertas(); }, []);
 
   const cargarMisOfertas = async () => {
     try {
-      const response = await api.get('/ofertas/mis-ofertas');
-      setOfertas(response.data.data || []);
-    } catch (error) {
-      console.error('Error cargando mis ofertas:', error);
+      const r = await api.get('/ofertas/mis-ofertas');
+      const data = r.data.data || [];
+      setOfertas(data);
+      if (data.length) setSelected(data[0]._id);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
   const copiarLink = (link) => {
-    const urlCompleta = `http://localhost:3000${link}`;
-    navigator.clipboard.writeText(urlCompleta);
+    navigator.clipboard.writeText(`http://localhost:3000${link}`);
     setCopiado(link);
     setTimeout(() => setCopiado(null), 2000);
   };
 
-  const abrirLink = (link) => {
-    window.open(`http://localhost:3000${link}`, '_blank');
-  };
+  const abrirLink = (link) => window.open(`http://localhost:3000${link}`, '_blank');
 
-  const descargarPDF = async (ofertaId) => {
+  const descargarPDF = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await api.get(`/ofertas/${ofertaId}/pdf`, {
+      const r = await api.get(`/ofertas/${id}/pdf`, {
         responseType: 'blob',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `ficha-${ofertaId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error('Error descargando PDF:', error);
+      const url = window.URL.createObjectURL(new Blob([r.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.setAttribute('download', `ficha-${id}.pdf`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
       alert('Error al descargar el PDF');
     }
   };
 
-  const eliminarOferta = async (ofertaId) => {
+  const eliminarOferta = async (id) => {
     try {
-      await api.delete(`/ofertas/${ofertaId}`);
-      setOfertas(prev => prev.filter(o => o._id !== ofertaId));
+      await api.delete(`/ofertas/${id}`);
+      const next = ofertas.filter(o => o._id !== id);
+      setOfertas(next);
       setConfirmDelete(null);
-    } catch (error) {
-      console.error('Error eliminando oferta:', error);
+      setSelected(next.length ? next[0]._id : null);
+    } catch {
       alert('Error al eliminar la oferta');
     }
   };
 
-  const getCuposColor = (disponibles, maximo) => {
-    const ratio = disponibles / maximo;
-    if (ratio > 0.5) return '#10b981';
-    if (ratio > 0.2) return '#f59e0b';
-    return '#ef4444';
+  const ofertaActual = ofertas.find(o => o._id === selected) || null;
+
+  /* ── totales ── */
+  const totalDisp  = ofertas.reduce((a, o) => a + (o.cupos_disponibles || 0), 0);
+  const totalMax   = ofertas.reduce((a, o) => a + (o.cupo_maximo || 0), 0);
+  const pctOcupado = totalMax > 0 ? Math.round(((totalMax - totalDisp) / totalMax) * 100) : 0;
+
+  const cuposColor = (disp, max) => {
+    const r = disp / max;
+    if (r > 0.5) return '#1a9e5c';
+    if (r > 0.2) return C.gold;
+    return '#d94040';
   };
 
-  if (loading) {
-    return (
-      <>
-        <style>{globalStyles}</style>
-        <div style={styles.loadingWrapper}>
-          <div style={styles.spinner} />
-          <p style={styles.loadingText}>Cargando ofertas...</p>
-        </div>
-      </>
-    );
-  }
+  if (loading) return (
+    <div style={{ ...st.center, minHeight: 300 }}>
+      <div style={st.spinnerRing} />
+      <p style={{ color: C.slateLight, fontFamily: 'Barlow, sans-serif', marginTop: 14 }}>
+        Cargando ofertas…
+      </p>
+    </div>
+  );
 
   return (
     <>
-      <style>{globalStyles}</style>
-      <div style={styles.page}>
+      <style>{css}</style>
 
-        {/* Modal de confirmación de eliminación */}
-        {confirmDelete && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modal}>
-              <div style={styles.modalIcon}>
-                <TrashIcon size={28} />
-              </div>
-              <h3 style={styles.modalTitle}>¿Eliminar oferta?</h3>
-              <p style={styles.modalText}>
-                Esta acción no se puede deshacer. Se eliminarán también los
-                instructores e inscripciones asociados.
-              </p>
-              <div style={styles.modalActions}>
-                <button
-                  onClick={() => setConfirmDelete(null)}
-                  style={{ ...styles.btn, ...styles.btnSecondary, flex: 1, justifyContent: 'center' }}
-                  className="btn-hover"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => eliminarOferta(confirmDelete)}
-                  style={{ ...styles.btn, ...styles.btnDelete, flex: 1, justifyContent: 'center' }}
-                  className="btn-hover"
-                >
-                  <TrashIcon /> Eliminar
-                </button>
-              </div>
+      {/* Modal eliminar */}
+      {confirmDelete && (
+        <div style={st.overlay}>
+          <div style={st.modal}>
+            <div style={st.modalWarning}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.orange} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+            </div>
+            <h3 style={st.modalH}>Confirmar eliminación</h3>
+            <p style={st.modalP}>Esta acción es irreversible. Se eliminarán instructores e inscripciones asociadas.</p>
+            <div style={st.modalRow}>
+              <button className="btn-ghost" onClick={() => setConfirmDelete(null)} style={st.btnGhost}>Cancelar</button>
+              <button className="btn-del" onClick={() => eliminarOferta(confirmDelete)} style={st.btnDel}>Eliminar definitivamente</button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.headerLeft}>
-            <div style={styles.headerIcon}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <div style={st.root}>
+
+        {/* ── Barra superior institucional ── */}
+        <header style={st.topBar}>
+          <div style={st.topBarLeft}>
+            <div style={st.logoBox}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.orange} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
               </svg>
             </div>
             <div>
-              <h1 style={styles.title}>Links de Inscripción</h1>
-              <p style={styles.subtitle}>Gestiona y comparte tus ofertas de formación</p>
+              <p style={st.topLabel}>SENA · Gestión de Ofertas</p>
+              <h1 style={st.topTitle}>Links de Inscripción</h1>
             </div>
           </div>
-        </div>
-
-        {/* Stats bar */}
-        {ofertas.length > 0 && (
-          <div style={styles.statsBar}>
-            <div style={styles.statItem}>
-              <span style={styles.statNumber}>{ofertas.length}</span>
-              <span style={styles.statLabel}>Ofertas activas</span>
-            </div>
-            <div style={styles.statDivider} />
-            <div style={styles.statItem}>
-              <span style={styles.statNumber}>
-                {ofertas.reduce((acc, o) => acc + (o.cupos_disponibles || 0), 0)}
-              </span>
-              <span style={styles.statLabel}>Cupos disponibles</span>
-            </div>
-            <div style={styles.statDivider} />
-            <div style={styles.statItem}>
-              <span style={styles.statNumber}>
-                {ofertas.reduce((acc, o) => acc + (o.cupo_maximo || 0), 0)}
-              </span>
-              <span style={styles.statLabel}>Cupos totales</span>
-            </div>
+          <div style={st.topStats}>
+            <Stat n={ofertas.length}  label="Ofertas" accent={C.orange} />
+            <div style={st.statSep} />
+            <Stat n={totalDisp}       label="Cupos libres" accent="#1a9e5c" />
+            <div style={st.statSep} />
+            <Stat n={`${pctOcupado}%`} label="Ocupación" accent={C.gold} />
           </div>
-        )}
+        </header>
 
-        {/* Empty state */}
         {ofertas.length === 0 ? (
-          <div style={styles.emptyState}>
-            <div style={styles.emptyIcon}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2"/>
-                <path d="M8 21h8M12 17v4"/>
-              </svg>
-            </div>
-            <h3 style={styles.emptyTitle}>Sin ofertas aún</h3>
-            <p style={styles.emptyText}>Ve a "Crear Oferta" para empezar a compartir tus programas de formación.</p>
+          <div style={st.empty}>
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke={C.border} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+            </svg>
+            <p style={{ color: C.slateLight, fontFamily: 'Barlow, sans-serif', marginTop: 16 }}>
+              No hay ofertas registradas. Ve a «Crear Oferta» para comenzar.
+            </p>
           </div>
         ) : (
-          <div style={styles.grid}>
-            {ofertas.map((oferta) => {
-              const isHovered = hoveredCard === oferta._id;
-              const cuposColor = getCuposColor(oferta.cupos_disponibles, oferta.cupo_maximo);
-              const cuposPct = Math.round((oferta.cupos_disponibles / oferta.cupo_maximo) * 100);
+          <div style={st.body}>
 
-              return (
-                <div
-                  key={oferta._id}
-                  style={{
-                    ...styles.card,
-                    ...(isHovered ? styles.cardHovered : {})
-                  }}
-                  onMouseEnter={() => setHoveredCard(oferta._id)}
-                  onMouseLeave={() => setHoveredCard(null)}
-                >
-                  {/* Card top accent */}
-                  <div style={styles.cardAccent} />
-
-                  {/* Card header */}
-                  <div style={styles.cardHeader}>
-                    <div style={styles.cardTitleRow}>
-                      <h3 style={styles.cardTitle}>
-                        {oferta.programa_formacion?.nombre_programa || 'Programa sin nombre'}
-                      </h3>
-                      {oferta.programa_formacion?.codigo && (
-                        <span style={styles.codigoBadge}>
-                          {oferta.programa_formacion.codigo}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Cupos progress */}
-                  <div style={styles.cuposSection}>
-                    <div style={styles.cuposHeader}>
-                      <span style={styles.cuposLabel}>Cupos disponibles</span>
-                      <span style={{ ...styles.cuposValue, color: cuposColor }}>
-                        {oferta.cupos_disponibles} / {oferta.cupo_maximo}
+            {/* ── Panel izquierdo: lista ── */}
+            <aside style={st.sidebar}>
+              <p style={st.sideLabel}>Programas ({ofertas.length})</p>
+              {ofertas.map(o => {
+                const activo = o._id === selected;
+                const cc = cuposColor(o.cupos_disponibles, o.cupo_maximo);
+                return (
+                  <button
+                    key={o._id}
+                    onClick={() => setSelected(o._id)}
+                    style={{ ...st.sideItem, ...(activo ? st.sideItemActive : {}) }}
+                    className="side-item"
+                  >
+                    <div style={{ ...st.sideDot, background: cc }} />
+                    <div style={st.sideTexts}>
+                      <span style={st.sideNombre}>
+                        {o.programa_formacion?.nombre_programa || 'Sin nombre'}
+                      </span>
+                      <span style={st.sideCodigo}>
+                        {o.programa_formacion?.codigo || '—'} · {o.cupos_disponibles}/{o.cupo_maximo} cupos
                       </span>
                     </div>
-                    <div style={styles.progressTrack}>
+                    {activo && <div style={st.sideArrow}>›</div>}
+                  </button>
+                );
+              })}
+            </aside>
+
+            {/* ── Panel derecho: detalle ── */}
+            <main style={st.detail}>
+              {ofertaActual ? (
+                <>
+                  {/* Encabezado del detalle */}
+                  <div style={st.detailHeader}>
+                    <div>
+                      <span style={st.detailCodigo}>
+                        {ofertaActual.programa_formacion?.codigo || 'SIN CÓDIGO'}
+                      </span>
+                      <h2 style={st.detailTitle}>
+                        {ofertaActual.programa_formacion?.nombre_programa || 'Programa sin nombre'}
+                      </h2>
+                    </div>
+                    <button
+                      className="btn-del-sm"
+                      onClick={() => setConfirmDelete(ofertaActual._id)}
+                      style={st.delIconBtn}
+                      title="Eliminar oferta"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                      </svg>
+                      Eliminar
+                    </button>
+                  </div>
+
+                  {/* Cupos bar */}
+                  <div style={st.cuposBlock}>
+                    <div style={st.cuposRow}>
+                      <span style={st.cuposLbl}>Disponibilidad de cupos</span>
+                      <span style={{ ...st.cuposNum, color: cuposColor(ofertaActual.cupos_disponibles, ofertaActual.cupo_maximo) }}>
+                        {ofertaActual.cupos_disponibles} disponibles de {ofertaActual.cupo_maximo}
+                      </span>
+                    </div>
+                    <div style={st.track}>
                       <div style={{
-                        ...styles.progressBar,
-                        width: `${cuposPct}%`,
-                        backgroundColor: cuposColor
+                        ...st.fill,
+                        width: `${Math.round((ofertaActual.cupos_disponibles / ofertaActual.cupo_maximo) * 100)}%`,
+                        background: cuposColor(ofertaActual.cupos_disponibles, ofertaActual.cupo_maximo),
                       }} />
                     </div>
                   </div>
 
-                  {/* Info rows */}
-                  <div style={styles.infoGrid}>
-                    <InfoRow
-                      icon={<CalendarIcon />}
-                      label="Fechas"
-                      value={`${new Date(oferta.fechas?.inicio).toLocaleDateString('es-CO', { day:'2-digit', month:'short' })} — ${new Date(oferta.fechas?.fin).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' })}`}
-                    />
-                    <InfoRow
-                      icon={<LocationIcon />}
-                      label="Ubicación"
-                      value={oferta.ubicacion?.municipio?.nombre || 'N/A'}
-                    />
-                    <InfoRow
-                      icon={<PersonIcon />}
-                      label="Coordinador"
-                      value={oferta.coordinador_asignado?.nombre || 'N/A'}
-                    />
-                  </div>
+                  {/* Tabla de datos */}
+                  <table style={st.table}>
+                    <tbody>
+                      {[
+                        ['Fecha inicio',    new Date(ofertaActual.fechas?.inicio).toLocaleDateString('es-CO', { dateStyle: 'long' })],
+                        ['Fecha fin',       new Date(ofertaActual.fechas?.fin).toLocaleDateString('es-CO', { dateStyle: 'long' })],
+                        ['Municipio',       ofertaActual.ubicacion?.municipio?.nombre || '—'],
+                        ['Coordinador',     ofertaActual.coordinador_asignado?.nombre || '—'],
+                      ].map(([label, val]) => (
+                        <tr key={label} style={st.tr}>
+                          <td style={st.tdLabel}>{label}</td>
+                          <td style={st.tdVal}>{val}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
                   {/* Link box */}
-                  <div style={styles.linkSection}>
-                    <div style={styles.linkBox}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                        <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                      </svg>
-                      <span style={styles.linkText}>
-                        {`localhost:3000${oferta.link_inscripciones || '/inscribirse/error'}`}
-                      </span>
-                    </div>
-
-                    {/* Actions */}
-                    <div style={styles.actions}>
-                      <button
-                        onClick={() => copiarLink(oferta.link_inscripciones)}
-                        style={{
-                          ...styles.btn,
-                          ...styles.btnPrimary,
-                          ...(copiado === oferta.link_inscripciones ? styles.btnCopied : {})
-                        }}
-                        className="btn-hover"
-                      >
-                        {copiado === oferta.link_inscripciones ? (
-                          <><CheckIcon /> Copiado</>
-                        ) : (
-                          <><CopyIcon /> Copiar</>
-                        )}
-                      </button>
-
-                      <button
-                        onClick={() => abrirLink(oferta.link_inscripciones)}
-                        style={{ ...styles.btn, ...styles.btnSecondary }}
-                        className="btn-hover"
-                      >
-                        <ExternalIcon /> Abrir
-                      </button>
-
-                      <button
-                        onClick={() => descargarPDF(oferta._id)}
-                        style={{ ...styles.btn, ...styles.btnOutline }}
-                        className="btn-hover"
-                        title="Descargar ficha de caracterización"
-                      >
-                        <PdfIcon />
-                      </button>
-
-                      {/* NUEVO: botón eliminar */}
-                      <button
-                        onClick={() => setConfirmDelete(oferta._id)}
-                        style={{ ...styles.btn, ...styles.btnDanger }}
-                        className="btn-hover"
-                        title="Eliminar oferta"
-                      >
-                        <TrashIcon />
-                      </button>
+                  <div style={st.linkBlock}>
+                    <p style={st.linkCaption}>URL de inscripción pública</p>
+                    <div style={st.linkRow}>
+                      <div style={st.linkPill}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.slateLight} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        <span style={st.linkText}>
+                          localhost:3000{ofertaActual.link_inscripciones || '/inscribirse/error'}
+                        </span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Acciones */}
+                  <div style={st.actions}>
+                    <button
+                      className="btn-primary"
+                      onClick={() => copiarLink(ofertaActual.link_inscripciones)}
+                      style={{ ...st.btnPrimary, ...(copiado === ofertaActual.link_inscripciones ? st.btnCopied : {}) }}
+                    >
+                      {copiado === ofertaActual.link_inscripciones ? (
+                        <><CheckIcon /> Copiado</>
+                      ) : (
+                        <><CopyIcon /> Copiar link</>
+                      )}
+                    </button>
+
+                    <button
+                      className="btn-secondary"
+                      onClick={() => abrirLink(ofertaActual.link_inscripciones)}
+                      style={st.btnSecondary}
+                    >
+                      <ExternalIcon /> Abrir
+                    </button>
+
+                    <button
+                      className="btn-outline"
+                      onClick={() => descargarPDF(ofertaActual._id)}
+                      style={st.btnOutline}
+                      title="Descargar ficha PDF"
+                    >
+                      <PdfIcon /> Ficha PDF
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div style={st.center}>
+                  <p style={{ color: C.slateLight, fontFamily: 'Barlow, sans-serif' }}>
+                    Selecciona una oferta
+                  </p>
                 </div>
-              );
-            })}
+              )}
+            </main>
+
           </div>
         )}
       </div>
@@ -313,32 +313,14 @@ const LinksInscripcion = () => {
   );
 };
 
-/* ── Small helper components ── */
-const InfoRow = ({ icon, label, value }) => (
-  <div style={styles.infoRow}>
-    <span style={styles.infoIcon}>{icon}</span>
-    <div style={styles.infoContent}>
-      <span style={styles.infoLabel}>{label}</span>
-      <span style={styles.infoValue}>{value}</span>
-    </div>
+/* ─── Componentes auxiliares ─── */
+const Stat = ({ n, label, accent }) => (
+  <div style={{ textAlign: 'center', padding: '0 18px' }}>
+    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Barlow Condensed', sans-serif", color: accent, lineHeight: 1 }}>{n}</div>
+    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: "'Barlow', sans-serif" }}>{label}</div>
   </div>
 );
 
-const CalendarIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-  </svg>
-);
-const LocationIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-  </svg>
-);
-const PersonIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-  </svg>
-);
 const CopyIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -356,431 +338,374 @@ const ExternalIcon = () => (
 );
 const PdfIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-  </svg>
-);
-const TrashIcon = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-    <path d="M10 11v6M14 11v6"/>
-    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
   </svg>
 );
 
-/* ── Global styles ── */
-const globalStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+/* ─── CSS global ─── */
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@400;500&display=swap');
 
-  * { box-sizing: border-box; }
+  *, *::before, *::after { box-sizing: border-box; }
 
-  .btn-hover { transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; }
-  .btn-hover:hover { transform: translateY(-1px); opacity: 0.92; }
-  .btn-hover:active { transform: translateY(0); }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes spin    { to { transform:rotate(360deg); } }
+  @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+  @keyframes popIn   { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }
 
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-  @keyframes scaleIn {
-    from { opacity: 0; transform: scale(0.92); }
-    to   { opacity: 1; transform: scale(1); }
-  }
+  .side-item:hover { background: rgba(232,82,10,0.06) !important; }
+  .btn-primary:hover { background: #c4430a !important; }
+  .btn-secondary:hover { background: #e2e6f0 !important; }
+  .btn-outline:hover { background: #f0f2f7 !important; }
+  .btn-ghost:hover { background: #f0f2f7 !important; }
+  .btn-del:hover { background: #b03208 !important; }
+  .btn-del-sm:hover { background: #fff0eb !important; color: #c4430a !important; }
 `;
 
-/* ── Styles ── */
-const styles = {
-  page: {
-    padding: '32px 28px',
-    maxWidth: '1280px',
-    margin: '0 auto',
-    fontFamily: "'DM Sans', sans-serif",
-    color: '#0f172a',
-    animation: 'fadeUp 0.4s ease both',
+/* ─── Estilos ─── */
+const st = {
+  root: {
+    fontFamily: "'Barlow Semi Condensed', 'Barlow', sans-serif",
+    background: C.offWhite,
+    minHeight: '100vh',
+    animation: 'fadeUp 0.35s ease both',
   },
 
-  /* Modal */
-  modalOverlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(15,23,42,0.45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 9999,
-    animation: 'fadeIn 0.2s ease',
-  },
-  modal: {
-    background: '#ffffff',
-    borderRadius: '16px',
-    padding: '28px 28px 24px',
-    width: '360px',
-    boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-    animation: 'scaleIn 0.2s ease',
-    textAlign: 'center',
-  },
-  modalIcon: {
-    width: '52px',
-    height: '52px',
-    borderRadius: '50%',
-    background: '#fef2f2',
-    color: '#ef4444',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '0 auto 16px',
-  },
-  modalTitle: {
-    margin: '0 0 8px',
-    fontSize: '17px',
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  modalText: {
-    margin: '0 0 22px',
-    fontSize: '13px',
-    color: '#64748b',
-    lineHeight: '1.6',
-  },
-  modalActions: {
-    display: 'flex',
-    gap: '10px',
-  },
-
-  /* Header */
-  header: {
+  /* Top bar */
+  topBar: {
+    background: C.navy,
+    padding: '0 28px',
+    height: 72,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '28px',
-    flexWrap: 'wrap',
-    gap: '16px',
+    borderBottom: `3px solid ${C.orange}`,
   },
-  headerLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '14px',
-  },
-  headerIcon: {
-    width: '46px',
-    height: '46px',
-    borderRadius: '12px',
-    background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+  topBarLeft: { display: 'flex', alignItems: 'center', gap: 14 },
+  logoBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    border: `1.5px solid rgba(232,82,10,0.5)`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'white',
-    flexShrink: 0,
-    boxShadow: '0 4px 12px rgba(16,184,129,0.35)',
+    background: 'rgba(232,82,10,0.08)',
   },
-  title: {
+  topLabel: {
     margin: 0,
-    fontSize: '22px',
-    fontWeight: '700',
-    letterSpacing: '-0.3px',
-    color: '#0f172a',
-  },
-  subtitle: {
-    margin: '2px 0 0',
-    fontSize: '13px',
-    color: '#64748b',
-    fontWeight: '400',
-  },
-
-  /* Stats bar */
-  statsBar: {
-    display: 'flex',
-    alignItems: 'center',
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '14px 24px',
-    marginBottom: '28px',
-    width: 'fit-content',
-  },
-  statItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '0 24px',
-  },
-  statNumber: {
-    fontSize: '24px',
-    fontWeight: '700',
-    color: '#047857',
-    lineHeight: 1,
-  },
-  statLabel: {
-    fontSize: '11px',
-    color: '#94a3b8',
-    marginTop: '4px',
-    fontWeight: '500',
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.4)',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px',
+    letterSpacing: '0.1em',
+    fontFamily: "'Barlow', sans-serif",
+    fontWeight: 500,
   },
-  statDivider: {
-    width: '1px',
-    height: '32px',
-    background: '#e2e8f0',
+  topTitle: {
+    margin: '2px 0 0',
+    fontSize: 18,
+    fontWeight: 700,
+    color: C.white,
+    fontFamily: "'Barlow Condensed', sans-serif",
+    letterSpacing: '0.02em',
   },
+  topStats: { display: 'flex', alignItems: 'center' },
+  statSep: { width: 1, height: 28, background: 'rgba(255,255,255,0.1)' },
 
-  /* Grid */
-  grid: {
+  /* Body */
+  body: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
-    gap: '20px',
+    gridTemplateColumns: '290px 1fr',
+    minHeight: 'calc(100vh - 75px)',
   },
 
-  /* Card */
-  card: {
-    background: '#ffffff',
-    borderRadius: '16px',
-    border: '1px solid #e2e8f0',
-    overflow: 'hidden',
-    position: 'relative',
-    transition: 'box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+  /* Sidebar */
+  sidebar: {
+    background: C.white,
+    borderRight: `1px solid ${C.border}`,
+    padding: '20px 0',
+    overflowY: 'auto',
   },
-  cardHovered: {
-    boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-    transform: 'translateY(-2px)',
-    borderColor: '#bfdbfe',
+  sideLabel: {
+    margin: '0 0 10px',
+    padding: '0 18px',
+    fontSize: 10,
+    fontWeight: 600,
+    color: C.slateLight,
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    fontFamily: "'Barlow', sans-serif",
   },
-  cardAccent: {
-    height: '4px',
-    background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)',
-  },
-  cardHeader: {
-    padding: '16px 18px 12px',
-  },
-  cardTitleRow: {
+  sideItem: {
     display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '10px',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    border: 'none',
+    background: 'transparent',
+    padding: '10px 18px',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'background 0.15s',
+    borderLeft: '3px solid transparent',
   },
-  cardTitle: {
-    margin: 0,
-    fontSize: '15px',
-    fontWeight: '600',
-    color: '#0f172a',
-    lineHeight: '1.4',
-    flex: 1,
+  sideItemActive: {
+    background: 'rgba(232,82,10,0.05)',
+    borderLeft: `3px solid ${C.orange}`,
   },
-  codigoBadge: {
-    background: '#ecfdf5',
-    color: '#047857',
-    fontSize: '11px',
-    fontWeight: '600',
-    padding: '3px 8px',
-    borderRadius: '6px',
+  sideDot: {
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    flexShrink: 0,
+  },
+  sideTexts: { display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 },
+  sideNombre: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: C.ink,
+    fontFamily: "'Barlow', sans-serif",
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    border: '1px solid #d1fae5',
-    fontFamily: "'DM Mono', monospace",
-    letterSpacing: '0.3px',
+  },
+  sideCodigo: {
+    fontSize: 11,
+    color: C.slateLight,
+    fontFamily: "'Barlow', sans-serif",
+  },
+  sideArrow: {
+    fontSize: 16,
+    color: C.orange,
+    fontWeight: 700,
+    flexShrink: 0,
+  },
+
+  /* Detail */
+  detail: {
+    padding: '32px 36px',
+    background: C.offWhite,
+  },
+  detailHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+    gap: 16,
+  },
+  detailCodigo: {
+    display: 'inline-block',
+    background: '#e8f7f0',
+    color: '#2a7a52',
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: '0.12em',
+    padding: '4px 10px',
+    borderRadius: 4,
+    fontFamily: "'Barlow', sans-serif",
+    marginBottom: 8,
+  },
+  detailTitle: {
+    margin: 0,
+    fontSize: 22,
+    fontWeight: 700,
+    fontFamily: "'Barlow Condensed', sans-serif",
+    color: C.ink,
+    lineHeight: 1.2,
+    letterSpacing: '0.01em',
+  },
+  delIconBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    background: 'transparent',
+    border: `1px solid ${C.border}`,
+    borderRadius: 6,
+    padding: '7px 12px',
+    cursor: 'pointer',
+    fontSize: 12,
+    color: C.slate,
+    fontFamily: "'Barlow', sans-serif",
+    fontWeight: 500,
+    transition: 'all 0.15s',
     flexShrink: 0,
   },
 
   /* Cupos */
-  cuposSection: {
-    padding: '0 18px 14px',
+  cuposBlock: {
+    background: C.white,
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    padding: '14px 18px',
+    marginBottom: 16,
   },
-  cuposHeader: {
+  cuposRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '6px',
+    marginBottom: 8,
   },
-  cuposLabel: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-  cuposValue: {
-    fontSize: '13px',
-    fontWeight: '700',
-    fontFamily: "'DM Mono', monospace",
-  },
-  progressTrack: {
-    height: '5px',
-    background: '#f1f5f9',
-    borderRadius: '99px',
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: '99px',
-    transition: 'width 0.6s ease',
-  },
+  cuposLbl: { fontSize: 12, color: C.slateLight, fontWeight: 500 },
+  cuposNum: { fontSize: 13, fontWeight: 700, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.02em' },
+  track: { height: 6, background: C.offWhite, borderRadius: 99, overflow: 'hidden', border: `1px solid ${C.border}` },
+  fill:  { height: '100%', borderRadius: 99, transition: 'width 0.5s ease' },
 
-  /* Info rows */
-  infoGrid: {
-    padding: '4px 18px 14px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    borderBottom: '1px solid #f1f5f9',
+  /* Table */
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    background: C.white,
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 16,
   },
-  infoRow: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '8px',
+  tr: { borderBottom: `1px solid ${C.border}` },
+  tdLabel: {
+    padding: '10px 16px',
+    fontSize: 12,
+    color: C.slateLight,
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+    width: '36%',
+    background: '#fafbfc',
+    fontFamily: "'Barlow', sans-serif",
   },
-  infoIcon: {
-    color: '#94a3b8',
-    flexShrink: 0,
-    marginTop: '1px',
-  },
-  infoContent: {
-    display: 'flex',
-    gap: '6px',
-    alignItems: 'baseline',
-    flexWrap: 'wrap',
-  },
-  infoLabel: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontSize: '13px',
-    color: '#334155',
-    fontWeight: '500',
+  tdVal: {
+    padding: '10px 16px',
+    fontSize: 13,
+    color: C.ink,
+    fontWeight: 500,
+    fontFamily: "'Barlow', sans-serif",
   },
 
   /* Link */
-  linkSection: {
-    padding: '14px 18px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
+  linkBlock: {
+    marginBottom: 20,
   },
-  linkBox: {
+  linkCaption: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: C.slateLight,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    marginBottom: 8,
+    fontFamily: "'Barlow', sans-serif",
+  },
+  linkRow: { display: 'flex', alignItems: 'center', gap: 10 },
+  linkPill: {
     display: 'flex',
-    alignItems: 'flex-start',
-    gap: '7px',
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
-    borderRadius: '8px',
-    padding: '9px 12px',
+    alignItems: 'center',
+    gap: 8,
+    background: C.white,
+    border: `1px solid ${C.border}`,
+    borderRadius: 6,
+    padding: '9px 14px',
+    flex: 1,
   },
   linkText: {
-    fontSize: '12px',
-    color: '#475569',
-    fontFamily: "'DM Mono', monospace",
+    fontSize: 12,
+    color: C.slate,
+    fontFamily: "'Barlow', monospace",
     wordBreak: 'break-all',
-    lineHeight: '1.5',
   },
 
-  /* Buttons */
-  actions: {
-    display: 'flex',
-    gap: '8px',
-  },
-  btn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '8px 14px',
-    borderRadius: '8px',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
-    fontFamily: "'DM Sans', sans-serif",
-    whiteSpace: 'nowrap',
-  },
+  /* Actions */
+  actions: { display: 'flex', gap: 10, flexWrap: 'wrap' },
   btnPrimary: {
-    background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
-    color: 'white',
-    flex: 1,
-    justifyContent: 'center',
-    boxShadow: '0 2px 8px rgba(16,184,129,0.3)',
+    display: 'flex', alignItems: 'center', gap: 7,
+    background: C.orange,
+    color: C.white,
+    border: 'none',
+    borderRadius: 6,
+    padding: '10px 20px',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: "'Barlow', sans-serif",
+    transition: 'background 0.15s',
+    letterSpacing: '0.01em',
   },
-  btnCopied: {
-    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-  },
+  btnCopied: { background: '#1a9e5c' },
   btnSecondary: {
-    background: '#f1f5f9',
-    color: '#334155',
-    flex: 1,
-    justifyContent: 'center',
-    border: '1px solid #e2e8f0',
+    display: 'flex', alignItems: 'center', gap: 7,
+    background: '#e8edf5',
+    color: C.navyLow,
+    border: 'none',
+    borderRadius: 6,
+    padding: '10px 18px',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: "'Barlow', sans-serif",
+    transition: 'background 0.15s',
   },
   btnOutline: {
+    display: 'flex', alignItems: 'center', gap: 7,
     background: 'transparent',
-    color: '#64748b',
-    border: '1px solid #e2e8f0',
-    padding: '8px 10px',
-  },
-  btnDanger: {
-    background: 'transparent',
-    color: '#ef4444',
-    border: '1px solid #fecaca',
-    padding: '8px 10px',
-  },
-  btnDelete: {
-    background: '#ef4444',
-    color: 'white',
-    border: 'none',
-    justifyContent: 'center',
-    boxShadow: '0 2px 8px rgba(239,68,68,0.3)',
+    color: C.slate,
+    border: `1px solid ${C.border}`,
+    borderRadius: 6,
+    padding: '10px 18px',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: "'Barlow', sans-serif",
+    transition: 'background 0.15s',
   },
 
-  /* Empty */
-  emptyState: {
-    textAlign: 'center',
-    padding: '64px 32px',
-    background: '#f8fafc',
-    borderRadius: '16px',
-    border: '1px dashed #cbd5e1',
+  /* Modal */
+  overlay: {
+    position: 'fixed', inset: 0,
+    background: 'rgba(10,22,40,0.55)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 9999,
+    animation: 'fadeIn 0.2s ease',
   },
-  emptyIcon: { marginBottom: '16px', opacity: 0.6 },
-  emptyTitle: {
-    margin: '0 0 8px',
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#334155',
+  modal: {
+    background: C.white,
+    borderRadius: 10,
+    padding: '28px 28px 22px',
+    width: 380,
+    borderTop: `4px solid ${C.orange}`,
+    animation: 'popIn 0.2s ease',
   },
-  emptyText: {
-    margin: 0,
-    fontSize: '14px',
-    color: '#94a3b8',
-    maxWidth: '300px',
-    marginInline: 'auto',
-    lineHeight: '1.6',
-  },
-
-  /* Loading */
-  loadingWrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '80px',
-    gap: '16px',
-    fontFamily: "'DM Sans', sans-serif",
-  },
-  spinner: {
-    width: '36px',
-    height: '36px',
-    border: '3px solid #e2e8f0',
-    borderTop: '3px solid #10b981',
+  modalWarning: {
+    width: 44, height: 44,
     borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
+    background: '#fff3ed',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    marginBottom: 14,
   },
-  loadingText: {
-    color: '#94a3b8',
-    fontSize: '14px',
-    fontWeight: '500',
-    margin: 0,
+  modalH: { margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: C.ink, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.02em' },
+  modalP: { margin: '0 0 22px', fontSize: 13, color: C.slate, lineHeight: 1.6, fontFamily: "'Barlow', sans-serif" },
+  modalRow: { display: 'flex', gap: 10 },
+  btnGhost: {
+    flex: 1, padding: '10px', background: 'transparent',
+    border: `1px solid ${C.border}`, borderRadius: 6,
+    color: C.slate, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    fontFamily: "'Barlow', sans-serif", transition: 'background 0.15s',
+  },
+  btnDel: {
+    flex: 1, padding: '10px', background: C.orange,
+    border: 'none', borderRadius: 6,
+    color: C.white, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    fontFamily: "'Barlow', sans-serif", transition: 'background 0.15s',
+  },
+
+  /* Utiles */
+  center: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60 },
+  spinnerRing: {
+    width: 32, height: 32,
+    border: `3px solid ${C.border}`,
+    borderTop: `3px solid ${C.orange}`,
+    borderRadius: '50%',
+    animation: 'spin 0.7s linear infinite',
+  },
+  empty: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    padding: '80px 32px', textAlign: 'center',
   },
 };
 

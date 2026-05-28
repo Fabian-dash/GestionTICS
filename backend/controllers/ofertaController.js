@@ -60,6 +60,9 @@ const crearOferta = async (req, res) => {
     console.log('- tipo_programa:', req.body.tipo_programa);
     console.log('- tipo_oferta:', req.body.tipo_oferta);
     console.log('- empresa_solicitante:', req.body.empresa_solicitante);
+    console.log('- programa_especial:', req.body.programa_especial);
+    console.log('- firma_digital_pdf archivos:', req.files?.firma_digital_pdf ? 'SÍ' : 'NO');
+    console.log('- carta_pdf archivos:', req.files?.carta_pdf ? 'SÍ' : 'NO');
 
     // ===== NUEVO: Buscar el estado "borrador" =====
     console.log('🔍 Buscando estado "borrador"...');
@@ -207,33 +210,66 @@ const crearOferta = async (req, res) => {
 // Obtener todas las ofertas
 const obtenerOfertas = async (req, res) => {
   try {
-    const ofertas = await CreacionOferta.find()
-      .populate('programa_formacion')
-      .populate('modalidad')
-      .populate('tipo_programa')
-      .populate('tipo_oferta')
-      .populate('ubicacion.municipio')
-      .populate('programa_especial')
-      .populate('estado')
-      .populate({
-        path: 'creado_por',
-        select: 'nombre apellido nombreUsuario numeroIdentificacion correoElectronico'
+    console.log('🔍 Obteniendo ofertas...');
+    
+    const ofertas = await CreacionOferta.aggregate([
+      {
+        $lookup: {
+          from: 'inscripcions',
+          localField: '_id',
+          foreignField: 'oferta_id',
+          as: 'inscritos_array'
+        }
+      },
+      {
+        $addFields: {
+          inscritos_count: { $size: '$inscritos_array' }
+        }
+      },
+      {
+        $project: {
+          inscritos_array: 0
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
+
+    // Ahora hacemos populate manual para los campos relacionados
+    const ofertasConDatos = await Promise.all(
+      ofertas.map(async (oferta) => {
+        let doc = await CreacionOferta.findById(oferta._id)
+          .populate('programa_formacion')
+          .populate('modalidad')
+          .populate('tipo_programa')
+          .populate('tipo_oferta')
+          .populate('ubicacion.municipio')
+          .populate('programa_especial')
+          .populate('estado')
+          .populate('creado_por', 'nombre apellido nombreUsuario numeroIdentificacion correoElectronico')
+          .populate({
+            path: 'empresa_solicitante',
+            select: 'nombre nit'
+          })
+          .populate('coordinador_asignado', 'nombre');
+        
+        // Agregar el conteo de inscritos
+        if (doc) {
+          doc.inscritos_count = oferta.inscritos_count;
+        }
+        return doc;
       })
-      .populate({
-        path: 'empresa_solicitante',
-        select: 'nombre nit'
-      })
-      .populate('coordinador_asignado', 'nombre')
-      .select('+carta_pdf +firma_digital_pdf')  // ← AGREGAR
-      .sort({ createdAt: -1 });
+    );
+
+    console.log(`✅ ${ofertasConDatos.length} ofertas encontradas`);
 
     res.json({
       success: true,
-      count: ofertas.length,
-      data: ofertas
+      count: ofertasConDatos.length,
+      data: ofertasConDatos
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('❌ Error al obtener ofertas:', error.message);
+    console.error('Stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Error al obtener las ofertas',
@@ -287,6 +323,7 @@ const obtenerOfertaPorId = async (req, res) => {
       .populate('tipo_oferta')
       .populate('ubicacion.municipio')
       .populate('programa_especial')
+      .populate('estado')
       .populate({
         path: 'creado_por',
         select: 'nombre apellido nombreUsuario numeroIdentificacion correoElectronico'
@@ -304,9 +341,17 @@ const obtenerOfertaPorId = async (req, res) => {
       });
     }
 
+    // Contar inscritos
+    const Inscripcion = require('../models/Inscripcion');
+    const inscritos_count = await Inscripcion.countDocuments({ oferta_id: oferta._id });
+    
+    // Agregar conteo a la oferta
+    const ofertaConConteo = oferta.toObject();
+    ofertaConConteo.inscritos_count = inscritos_count;
+
     res.json({
       success: true,
-      data: oferta
+      data: ofertaConConteo
     });
   } catch (error) {
     console.error('Error:', error);
@@ -323,28 +368,59 @@ const obtenerMisOfertas = async (req, res) => {
   try {
     const usuario = req.usuario;
     
-    const ofertas = await CreacionOferta.find({ 
-      creado_por: usuario._id 
-    })
-      .populate('programa_formacion')
-      .populate('modalidad')
-      .populate('tipo_programa')
-      .populate('tipo_oferta')
-      .populate('ubicacion.municipio')
-      .populate('programa_especial')
-      .populate('estado')
-      .populate({
-        path: 'empresa_solicitante',
-        select: 'nombre nit'
+    const ofertas = await CreacionOferta.aggregate([
+      { $match: { creado_por: usuario._id } },
+      {
+        $lookup: {
+          from: 'inscripcions',
+          localField: '_id',
+          foreignField: 'oferta_id',
+          as: 'inscritos_array'
+        }
+      },
+      {
+        $addFields: {
+          inscritos_count: { $size: '$inscritos_array' }
+        }
+      },
+      {
+        $project: {
+          inscritos_array: 0
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
+
+    // Ahora hacemos populate manual para los campos relacionados
+    const ofertasConDatos = await Promise.all(
+      ofertas.map(async (oferta) => {
+        let doc = await CreacionOferta.findById(oferta._id)
+          .populate('programa_formacion')
+          .populate('modalidad')
+          .populate('tipo_programa')
+          .populate('tipo_oferta')
+          .populate('ubicacion.municipio')
+          .populate('programa_especial')
+          .populate('estado')
+          .populate({
+            path: 'empresa_solicitante',
+            select: 'nombre nit'
+          })
+          .populate('coordinador_asignado', 'nombre')
+          .select('+carta_pdf +firma_digital_pdf');
+        
+        // Agregar el conteo de inscritos
+        if (doc) {
+          doc.inscritos_count = oferta.inscritos_count;
+        }
+        return doc;
       })
-      .populate('coordinador_asignado', 'nombre')
-      .select('+carta_pdf +firma_digital_pdf')  // ← ESTO ES CLAVE
-      .sort({ createdAt: -1 });
+    );
 
     res.json({
       success: true,
-      count: ofertas.length,
-      data: ofertas
+      count: ofertasConDatos.length,
+      data: ofertasConDatos
     });
   } catch (error) {
     console.error('Error:', error);

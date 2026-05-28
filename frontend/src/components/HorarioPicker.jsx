@@ -1,293 +1,466 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
+import { calcularFechaFin } from './horarioUtils';
 
-const DIAS_SEMANA = [
-  { key: 'Lunes',      corto: 'Lu', festivo: false },
-  { key: 'Martes',     corto: 'Ma', festivo: false },
-  { key: 'Miércoles',  corto: 'Mi', festivo: false },
-  { key: 'Jueves',     corto: 'Ju', festivo: false },
-  { key: 'Viernes',    corto: 'Vi', festivo: false },
-  { key: 'Sábado',     corto: 'Sa', festivo: true  },
-  { key: 'Domingo',    corto: 'Do', festivo: true  },
-];
+/**
+ * HorarioPicker
+ *
+ * Props:
+ *  - horario        : { hora_inicio, hora_fin, dias[] }
+ *  - fechaInicio    : 'YYYY-MM-DD'
+ *  - fechaFin       : 'YYYY-MM-DD'  (calculada por el padre, solo para mostrar)
+ *  - duracionHoras  : number | null  — duración total del programa en horas
+ *  - onChange       : (nuevoHorario) => void
+ */
 
-const NOMBRES_DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-const HorarioPicker = ({ horario, onChange, fechaInicio, fechaFin }) => {
-  const [modoActivo, setModoActivo] = useState(null);
+const HorarioPicker = ({ horario, fechaInicio, fechaFin, duracionHoras, onChange }) => {
 
-  // Calcular los días únicos entre las fechas
-  const diasEnRango = useMemo(() => {
-    if (!fechaInicio || !fechaFin) {
-      return DIAS_SEMANA; // Mostrar todos si no hay fechas
+  // Calcular estadísticas en tiempo real
+  const stats = useMemo(() => {
+    const [hIni, mIni] = (horario.hora_inicio || '00:00').split(':').map(Number);
+    const [hFin, mFin] = (horario.hora_fin   || '00:00').split(':').map(Number);
+    const minutosPorSesion = (hFin * 60 + mFin) - (hIni * 60 + mIni);
+    const horasPorSesion   = minutosPorSesion > 0 ? minutosPorSesion / 60 : 0;
+    const diasCount        = horario.dias?.length || 0;
+    const horasPorSemana   = horasPorSesion * diasCount;
+
+    let semanasNecesarias = null;
+    let mesesEstimados    = null;
+    if (duracionHoras && horasPorSemana > 0) {
+      semanasNecesarias = Math.ceil(duracionHoras / horasPorSemana);
+      mesesEstimados    = (semanasNecesarias / 4.33).toFixed(1);
     }
 
-    try {
-      const inicio = new Date(fechaInicio);
-      const fin = new Date(fechaFin);
+    return { horasPorSesion, horasPorSemana, semanasNecesarias, mesesEstimados, minutosPorSesion };
+  }, [horario.hora_inicio, horario.hora_fin, horario.dias, duracionHoras]);
 
-      if (isNaN(inicio.getTime()) || isNaN(fin.getTime())) {
-        return DIAS_SEMANA;
-      }
-
-      const diasUnicos = new Set();
-      const fechaActual = new Date(inicio);
-
-      // Iterar desde la fecha de inicio hasta la fecha de fin
-      while (fechaActual <= fin) {
-        const nombreDia = NOMBRES_DIAS[fechaActual.getDay()];
-        diasUnicos.add(nombreDia);
-        fechaActual.setDate(fechaActual.getDate() + 1);
-      }
-
-      // Retornar solo los días que están en el rango, en el orden de DIAS_SEMANA
-      return DIAS_SEMANA.filter(dia => diasUnicos.has(dia.key));
-    } catch (error) {
-      return DIAS_SEMANA;
-    }
-  }, [fechaInicio, fechaFin]);
-
-  useEffect(() => {
-    const diasValidos = (horario.dias || []).filter(d => diasEnRango.some(item => item.key === d));
-    if (JSON.stringify(diasValidos) !== JSON.stringify(horario.dias)) {
-      onChange({ ...horario, dias: diasValidos });
-    }
-  }, [diasEnRango, horario.dias, horario, onChange]);
-
-  const toggleDia = (dia) => {
+  const handleDiaToggle = (dia) => {
     const diasActuales = horario.dias || [];
-    const nuevos = diasActuales.includes(dia)
+    const nuevoDias = diasActuales.includes(dia)
       ? diasActuales.filter(d => d !== dia)
       : [...diasActuales, dia];
-    setModoActivo(null);
-    onChange({ ...horario, dias: nuevos });
+
+    // Mantener orden canónico
+    const ordenados = DIAS_SEMANA.filter(d => nuevoDias.includes(d));
+    onChange({ ...horario, dias: ordenados });
   };
 
-  const seleccionarHabiles = () => {
-    if (modoActivo === 'habiles') {
-      setModoActivo(null);
-      onChange({ ...horario, dias: [] });
-      return;
-    }
-    const diasHabiles = diasEnRango
-      .filter(d => !d.festivo)
-      .map(d => d.key);
-    setModoActivo('habiles');
-    onChange({ ...horario, dias: diasHabiles });
+  const handleHoraChange = (campo, valor) => {
+    onChange({ ...horario, [campo]: valor });
   };
 
-  const seleccionarSabados = () => {
-    if (modoActivo === 'sabados') {
-      setModoActivo(null);
-      onChange({ ...horario, dias: [] });
-      return;
-    }
-    const diasFestivos = diasEnRango
-      .filter(d => d.festivo)
-      .map(d => d.key);
-    setModoActivo('sabados');
-    onChange({ ...horario, dias: diasFestivos });
+  // Formatear fecha para mostrar
+  const formatearFecha = (fechaISO) => {
+    if (!fechaISO) return null;
+    const [y, m, d] = fechaISO.split('-');
+    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    return `${d} ${meses[parseInt(m, 10) - 1]} ${y}`;
   };
 
-  const limpiar = () => {
-    setModoActivo(null);
-    onChange({ ...horario, dias: [] });
-  };
-
-  const diasSeleccionados = horario.dias || [];
+  const horaValida = stats.minutosPorSesion > 0;
+  const hayDias    = (horario.dias?.length || 0) > 0;
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="hp-root">
+    <div style={s.root}>
 
-        <div className="hp-times">
-          <div className="hp-time-field">
-            <label className="hp-label">Hora inicio</label>
-            <div className="hp-time-wrap">
-              <svg className="hp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-              <input
-                className="hp-time-input"
-                type="time"
-                value={horario.hora_inicio || '08:00'}
-                onChange={e => onChange({ ...horario, hora_inicio: e.target.value })}
-              />
+      {/* ── FRANJA HORARIA ── */}
+      <div style={s.bloqueHorario}>
+        <div style={s.bloqueLabel}>
+          <span style={s.bloqueLabelIcon}>🕐</span>
+          Franja horaria
+        </div>
+        <div style={s.horaRow}>
+          <div style={s.horaGroup}>
+            <label style={s.horaLabel}>Hora inicio</label>
+            <input
+              type="time"
+              value={horario.hora_inicio || '08:00'}
+              onChange={e => handleHoraChange('hora_inicio', e.target.value)}
+              style={s.timeInput}
+            />
+          </div>
+          <div style={s.horaSep}>→</div>
+          <div style={s.horaGroup}>
+            <label style={s.horaLabel}>Hora fin</label>
+            <input
+              type="time"
+              value={horario.hora_fin || '12:00'}
+              onChange={e => handleHoraChange('hora_fin', e.target.value)}
+              style={s.timeInput}
+            />
+          </div>
+          {horaValida && (
+            <div style={s.duracionSesion}>
+              <span style={s.duracionNum}>{stats.horasPorSesion % 1 === 0 ? stats.horasPorSesion : stats.horasPorSesion.toFixed(1)}</span>
+              <span style={s.duracionUnit}>h/sesión</span>
             </div>
-          </div>
-          <div className="hp-time-field">
-            <label className="hp-label">Hora fin</label>
-            <div className="hp-time-wrap">
-              <svg className="hp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-              <input
-                className="hp-time-input"
-                type="time"
-                value={horario.hora_fin || '16:00'}
-                onChange={e => onChange({ ...horario, hora_fin: e.target.value })}
-              />
-            </div>
-          </div>
+          )}
+          {!horaValida && horario.hora_inicio && horario.hora_fin && (
+            <div style={s.errorHora}>⚠ La hora fin debe ser mayor a la hora inicio</div>
+          )}
         </div>
-
-        <div className="hp-quick-section">
-          <p className="hp-sublabel">Selección rápida</p>
-          <div className="hp-quick-row">
-            <button
-              type="button"
-              className={`hp-quick-btn ${modoActivo === 'habiles' ? 'hp-quick-btn--on' : ''}`}
-              onClick={seleccionarHabiles}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2M12 12v4M10 14h4"/></svg>
-              Días hábiles
-            </button>
-            <button
-              type="button"
-              className={`hp-quick-btn ${modoActivo === 'sabados' ? 'hp-quick-btn--on' : ''}`}
-              onClick={seleccionarSabados}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-              Sábados y festivos
-            </button>
-            <button type="button" className="hp-clear-btn" onClick={limpiar}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              Limpiar
-            </button>
-          </div>
-        </div>
-
-        <div className="hp-days-section">
-          <p className="hp-sublabel">Días</p>
-          <div className="hp-days-grid">
-            {diasEnRango.map(dia => {
-              const activo = diasSeleccionados.includes(dia.key);
-              return (
-                <button
-                  key={dia.key}
-                  type="button"
-                  className={`hp-day-btn ${activo ? 'hp-day-btn--on' : ''}`}
-                  onClick={() => toggleDia(dia.key)}
-                  aria-pressed={activo}
-                  title={dia.key}
-                >
-                  <span className="hp-day-corto">{dia.corto}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {diasSeleccionados.length > 0 && (
-          <div className="hp-resumen">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ color: '#16a34a', flexShrink: 0 }}><path d="M20 6L9 17l-5-5"/></svg>
-            <span className="hp-resumen-txt">
-              {diasSeleccionados.join(', ')} · {horario.hora_inicio || '08:00'} – {horario.hora_fin || '16:00'}
-            </span>
-          </div>
-        )}
       </div>
-    </>
+
+      {/* ── DÍAS ── */}
+      <div style={s.bloqueDias}>
+        <div style={s.bloqueLabel}>
+          <span style={s.bloqueLabelIcon}>📅</span>
+          Días de la semana
+        </div>
+        <div style={s.diasGrid}>
+          {DIAS_SEMANA.map(dia => {
+            const activo = horario.dias?.includes(dia);
+            const esFinDeSemana = dia === 'Sábado' || dia === 'Domingo';
+            return (
+              <button
+                key={dia}
+                type="button"
+                onClick={() => handleDiaToggle(dia)}
+                style={{
+                  ...s.diaBtn,
+                  ...(activo ? s.diaBtnActivo : {}),
+                  ...(esFinDeSemana && !activo ? s.diaBtnFinde : {})
+                }}
+              >
+                <span style={s.diaBtnAbrev}>{dia.substring(0, 2)}</span>
+                <span style={s.diaBtnNombre}>{dia}</span>
+                {activo && <span style={s.diaBtnCheck}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── PANEL DE CÁLCULO ── */}
+      {(horaValida || hayDias) && (
+        <div style={s.panelCalculo}>
+          <div style={s.panelCalculoTitle}>📊 Resumen de carga horaria</div>
+          <div style={s.panelCalculoGrid}>
+
+            <div style={s.statBox}>
+              <span style={s.statBoxNum}>{hayDias ? stats.horasPorSemana.toFixed(1) : '—'}</span>
+              <span style={s.statBoxLabel}>horas / semana</span>
+            </div>
+
+            {duracionHoras ? (
+              <>
+                <div style={s.statBox}>
+                  <span style={s.statBoxNum}>{duracionHoras}</span>
+                  <span style={s.statBoxLabel}>horas totales del programa</span>
+                </div>
+                <div style={s.statBox}>
+                  <span style={s.statBoxNum}>
+                    {hayDias && horaValida && stats.semanasNecesarias ? stats.semanasNecesarias : '—'}
+                  </span>
+                  <span style={s.statBoxLabel}>semanas estimadas</span>
+                </div>
+                <div style={{ ...s.statBox, ...s.statBoxDestacado }}>
+                  <span style={{ ...s.statBoxNum, color: '#0369a1' }}>
+                    {hayDias && horaValida && stats.mesesEstimados ? `~${stats.mesesEstimados}` : '—'}
+                  </span>
+                  <span style={{ ...s.statBoxLabel, color: '#0c4a6e' }}>meses estimados</span>
+                </div>
+              </>
+            ) : (
+              <div style={s.statBoxWarn}>
+                ⚠ El programa no tiene duración registrada. El cálculo de fecha fin no está disponible.
+              </div>
+            )}
+          </div>
+
+          {/* Flecha de resultado: fechas */}
+          {fechaInicio && fechaFin && duracionHoras && hayDias && horaValida && (
+            <div style={s.fechasResultado}>
+              <div style={s.fechaChip}>
+                <span style={s.fechaChipLabel}>Inicio</span>
+                <span style={s.fechaChipVal}>{formatearFecha(fechaInicio)}</span>
+              </div>
+              <div style={s.fechaArrow}>→</div>
+              <div style={{ ...s.fechaChip, ...s.fechaChipFin }}>
+                <span style={s.fechaChipLabel}>Fin estimado</span>
+                <span style={s.fechaChipVal}>{formatearFecha(fechaFin)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Mensaje de guía si falta algo */}
+          {duracionHoras && !fechaInicio && (
+            <p style={s.guiaMensaje}>👆 Ingresa la fecha de inicio para que se calcule la fecha fin automáticamente.</p>
+          )}
+          {duracionHoras && fechaInicio && !hayDias && (
+            <p style={s.guiaMensaje}>👆 Selecciona al menos un día para calcular la fecha fin.</p>
+          )}
+        </div>
+      )}
+
+    </div>
   );
 };
 
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+// ── ESTILOS ──
+const s = {
+  root: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px'
+  },
+  bloqueHorario: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '18px 20px'
+  },
+  bloqueDias: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '16px',
+    padding: '18px 20px'
+  },
+  bloqueLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#374151',
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+    marginBottom: '14px'
+  },
+  bloqueLabelIcon: { fontSize: '16px' },
+  horaRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    flexWrap: 'wrap'
+  },
+  horaGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px'
+  },
+  horaLabel: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em'
+  },
+  timeInput: {
+    padding: '12px 16px',
+    border: '1.5px solid #cbd5e1',
+    borderRadius: '12px',
+    fontSize: '16px',
+    fontWeight: 700,
+    color: '#0f172a',
+    backgroundColor: 'white',
+    outline: 'none',
+    cursor: 'pointer',
+    minWidth: '130px'
+  },
+  horaSep: {
+    fontSize: '20px',
+    color: '#94a3b8',
+    fontWeight: 300,
+    paddingTop: '18px'
+  },
+  duracionSesion: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    background: '#dbeafe',
+    border: '1px solid #93c5fd',
+    borderRadius: '12px',
+    padding: '8px 16px',
+    marginTop: '18px'
+  },
+  duracionNum: {
+    fontSize: '22px',
+    fontWeight: 800,
+    color: '#1d4ed8',
+    lineHeight: 1
+  },
+  duracionUnit: {
+    fontSize: '11px',
+    color: '#3b82f6',
+    fontWeight: 600
+  },
+  errorHora: {
+    fontSize: '12px',
+    color: '#dc2626',
+    background: '#fef2f2',
+    border: '1px solid #fecaca',
+    borderRadius: '8px',
+    padding: '6px 12px',
+    marginTop: '18px'
+  },
+  diasGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: '8px'
+  },
+  diaBtn: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '10px 4px',
+    border: '1.5px solid #e2e8f0',
+    borderRadius: '12px',
+    background: 'white',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+    position: 'relative',
+    gap: '2px'
+  },
+  diaBtnActivo: {
+    background: '#1d4ed8',
+    borderColor: '#1d4ed8',
+    boxShadow: '0 4px 14px rgba(29,78,216,0.25)',
+    transform: 'translateY(-1px)'
+  },
+  diaBtnFinde: {
+    background: '#fefce8',
+    borderColor: '#fde68a'
+  },
+  diaBtnAbrev: {
+    fontSize: '13px',
+    fontWeight: 800,
+    color: 'inherit',
+    lineHeight: 1
+  },
+  diaBtnNombre: {
+    fontSize: '9px',
+    fontWeight: 600,
+    color: 'inherit',
+    opacity: 0.7,
+    textOverflow: 'ellipsis',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap',
+    maxWidth: '100%'
+  },
+  diaBtnCheck: {
+    position: 'absolute',
+    top: '4px',
+    right: '5px',
+    fontSize: '9px',
+    color: '#93c5fd'
+  },
+  panelCalculo: {
+    background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+    border: '1px solid #7dd3fc',
+    borderRadius: '18px',
+    padding: '20px'
+  },
+  panelCalculoTitle: {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#0369a1',
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+    marginBottom: '16px'
+  },
+  panelCalculoGrid: {
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+    alignItems: 'stretch'
+  },
+  statBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    background: 'white',
+    border: '1px solid #bae6fd',
+    borderRadius: '12px',
+    padding: '12px 18px',
+    minWidth: '90px',
+    flex: 1
+  },
+  statBoxDestacado: {
+    background: '#e0f2fe',
+    border: '1.5px solid #38bdf8',
+    boxShadow: '0 4px 14px rgba(56,189,248,0.15)'
+  },
+  statBoxNum: {
+    fontSize: '24px',
+    fontWeight: 800,
+    color: '#0369a1',
+    lineHeight: 1
+  },
+  statBoxLabel: {
+    fontSize: '10px',
+    fontWeight: 600,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: '4px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em'
+  },
+  statBoxWarn: {
+    fontSize: '12px',
+    color: '#92400e',
+    background: '#fef3c7',
+    border: '1px solid #fde68a',
+    borderRadius: '10px',
+    padding: '10px 14px',
+    flex: 1
+  },
+  fechasResultado: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginTop: '18px',
+    flexWrap: 'wrap'
+  },
+  fechaChip: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '3px',
+    background: 'white',
+    border: '1px solid #cbd5e1',
+    borderRadius: '12px',
+    padding: '10px 18px'
+  },
+  fechaChipFin: {
+    background: '#f0fdf4',
+    border: '1.5px solid #86efac',
+    boxShadow: '0 2px 8px rgba(134,239,172,0.3)'
+  },
+  fechaChipLabel: {
+    fontSize: '10px',
+    fontWeight: 700,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em'
+  },
+  fechaChipVal: {
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#0f172a'
+  },
+  fechaArrow: {
+    fontSize: '22px',
+    color: '#94a3b8'
+  },
+  guiaMensaje: {
+    fontSize: '13px',
+    color: '#0369a1',
+    background: 'rgba(255,255,255,0.7)',
+    borderRadius: '10px',
+    padding: '10px 14px',
+    marginTop: '14px',
+    marginBottom: 0
+  }
+};
 
-  .hp-root {
-    font-family: 'DM Sans', sans-serif;
-    display: flex; flex-direction: column; gap: 14px;
-  }
-
-  .hp-label {
-    font-size: 11px; font-weight: 500;
-    text-transform: uppercase; letter-spacing: .07em;
-    color: #64748b; display: block; margin-bottom: 5px;
-  }
-  .hp-sublabel {
-    font-size: 11px; font-weight: 500;
-    text-transform: uppercase; letter-spacing: .07em;
-    color: #94a3b8; margin: 0 0 8px;
-  }
-
-  .hp-times {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-  }
-  .hp-time-field { display: flex; flex-direction: column; }
-  .hp-time-wrap { position: relative; }
-  .hp-ico {
-    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-    width: 14px; height: 14px; color: #94a3b8; pointer-events: none;
-  }
-  .hp-time-input {
-    width: 100%; padding: 8px 10px 8px 32px;
-    border: 0.5px solid #d1d5db; border-radius: 8px;
-    background: white; font-family: 'DM Sans', sans-serif;
-    font-size: 13px; color: #0f172a; outline: none;
-    box-sizing: border-box;
-    transition: border-color .15s, box-shadow .15s;
-  }
-  .hp-time-input:focus {
-    border-color: #0a3d2e;
-    box-shadow: 0 0 0 2px rgba(10,61,46,.1);
-  }
-
-  .hp-quick-row {
-    display: flex; gap: 7px; flex-wrap: wrap;
-  }
-  .hp-quick-btn {
-    display: flex; align-items: center; gap: 5px;
-    padding: 6px 12px; border-radius: 20px;
-    border: 0.5px solid #d1d5db;
-    background: #f8fafc;
-    color: #64748b;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px; font-weight: 500;
-    cursor: pointer; transition: all .15s;
-  }
-  .hp-quick-btn:hover { border-color: #0a3d2e; color: #0a3d2e; background: rgba(10,61,46,.04); }
-  .hp-quick-btn--on {
-    border-color: #0a3d2e !important;
-    background: #0a3d2e !important;
-    color: white !important;
-  }
-  .hp-clear-btn {
-    display: flex; align-items: center; gap: 5px;
-    padding: 6px 12px; border-radius: 20px;
-    border: 0.5px solid #e2e8f0;
-    background: transparent; color: #94a3b8;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px; font-weight: 500;
-    cursor: pointer; transition: all .15s;
-  }
-  .hp-clear-btn:hover { color: #dc2626; border-color: rgba(220,38,38,.3); background: rgba(220,38,38,.04); }
-
-  .hp-days-grid {
-    display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;
-  }
-  .hp-day-btn {
-    border: 0.5px solid #e2e8f0;
-    border-radius: 8px;
-    background: white;
-    cursor: pointer;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 8px 4px; gap: 2px;
-    font-family: 'DM Sans', sans-serif;
-    transition: all .15s;
-  }
-  .hp-day-btn:hover { border-color: #0a3d2e; background: rgba(10,61,46,.04); }
-  .hp-day-btn--on { border-color: #0a3d2e !important; background: #0a3d2e !important; }
-  .hp-day-corto { font-size: 11px; font-weight: 500; color: #475569; }
-  .hp-day-btn--on .hp-day-corto { color: white; }
-
-  .hp-resumen {
-    display: flex; align-items: center; gap: 8px;
-    background: #f0fdf4; border: 0.5px solid #bbf7d0;
-    border-radius: 8px; padding: 9px 12px;
-  }
-  .hp-resumen-txt { font-size: 12px; color: #166534; }
-
-  @media (max-width: 400px) {
-    .hp-times { grid-template-columns: 1fr; }
-    .hp-days-grid { grid-template-columns: repeat(4, 1fr); }
+// Responsive: en pantallas pequeñas, colapsar grid de días
+const responsiveStyle = `
+  @media (max-width: 600px) {
+    .hp-dias-grid {
+      grid-template-columns: repeat(4, 1fr) !important;
+    }
   }
 `;
 
 export default HorarioPicker;
-// por fin solucione
