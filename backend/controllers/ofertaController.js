@@ -60,6 +60,9 @@ const crearOferta = async (req, res) => {
     console.log('- tipo_programa:', req.body.tipo_programa);
     console.log('- tipo_oferta:', req.body.tipo_oferta);
     console.log('- empresa_solicitante:', req.body.empresa_solicitante);
+    console.log('- programa_especial:', req.body.programa_especial);
+    console.log('- firma_digital_pdf archivos:', req.files?.firma_digital_pdf ? 'SÍ' : 'NO');
+    console.log('- carta_pdf archivos:', req.files?.carta_pdf ? 'SÍ' : 'NO');
 
     // ===== NUEVO: Buscar el estado "borrador" =====
     console.log('🔍 Buscando estado "borrador"...');
@@ -224,16 +227,17 @@ const obtenerOfertas = async (req, res) => {
         select: 'nombre nit'
       })
       .populate('coordinador_asignado', 'nombre')
-      .select('+carta_pdf +firma_digital_pdf')
+      .select('+carta_pdf +firma_digital_pdf')  // ← AGREGAR
       .sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      count: ofertas.length,
-      data: ofertas
+      count: ofertasConDatos.length,
+      data: ofertasConDatos
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('❌ Error al obtener ofertas:', error.message);
+    console.error('Stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Error al obtener las ofertas',
@@ -285,6 +289,7 @@ const obtenerOfertaPorId = async (req, res) => {
       .populate('tipo_oferta')
       .populate('ubicacion.municipio')
       .populate('programa_especial')
+      .populate('estado')
       .populate({
         path: 'creado_por',
         select: 'nombre apellido nombreUsuario numeroIdentificacion correoElectronico'
@@ -302,9 +307,17 @@ const obtenerOfertaPorId = async (req, res) => {
       });
     }
 
+    // Contar inscritos
+    const Inscripcion = require('../models/Inscripcion');
+    const inscritos_count = await Inscripcion.countDocuments({ oferta_id: oferta._id });
+    
+    // Agregar conteo a la oferta
+    const ofertaConConteo = oferta.toObject();
+    ofertaConConteo.inscritos_count = inscritos_count;
+
     res.json({
       success: true,
-      data: oferta
+      data: ofertaConConteo
     });
   } catch (error) {
     console.error('Error:', error);
@@ -336,13 +349,13 @@ const obtenerMisOfertas = async (req, res) => {
         select: 'nombre nit'
       })
       .populate('coordinador_asignado', 'nombre')
-      .select('+carta_pdf +firma_digital_pdf')
+      .select('+carta_pdf +firma_digital_pdf')  // ← ESTO ES CLAVE
       .sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      count: ofertas.length,
-      data: ofertas
+      count: ofertasConDatos.length,
+      data: ofertasConDatos
     });
   } catch (error) {
     console.error('Error:', error);

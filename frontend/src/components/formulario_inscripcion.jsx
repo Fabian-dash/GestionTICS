@@ -24,25 +24,6 @@ const FormularioInscripcion = () => {
     pdf_cedula: null
   });
 
-  const descargarPDF = async (ofertaId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await api.get(`/ofertas/${ofertaId}/pdf`, {
-        responseType: 'blob',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `ficha-${ofertaId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error('Error descargando PDF:', error);
-    }
-  };
-
   useEffect(() => {
     cargarDatosIniciales();
     cargarInfoOferta();
@@ -89,14 +70,14 @@ const FormularioInscripcion = () => {
     setError('');
     setSuccess('');
     try {
-      if (!formData.nombres)         throw new Error('Los nombres son obligatorios');
-      if (!formData.apellidos)       throw new Error('Los apellidos son obligatorios');
-      if (!formData.tipo_documento)  throw new Error('Seleccione un tipo de documento');
+      if (!formData.nombres)          throw new Error('Los nombres son obligatorios');
+      if (!formData.apellidos)        throw new Error('Los apellidos son obligatorios');
+      if (!formData.tipo_documento)   throw new Error('Seleccione un tipo de documento');
       if (!formData.numero_documento) throw new Error('El número de documento es obligatorio');
-      if (!formData.caracterizacion) throw new Error('Seleccione una caracterización');
-      if (!formData.telefono)        throw new Error('El teléfono es obligatorio');
-      if (!formData.correo)          throw new Error('El correo es obligatorio');
-      if (!formData.pdf_cedula)      throw new Error('La cédula escaneada es obligatoria');
+      if (!formData.caracterizacion)  throw new Error('Seleccione una caracterización');
+      if (!formData.telefono)         throw new Error('El teléfono es obligatorio');
+      if (!formData.correo)           throw new Error('El correo es obligatorio');
+      if (!formData.pdf_cedula)       throw new Error('La cédula escaneada es obligatoria');
 
       const fd = new FormData();
       Object.entries(formData).forEach(([k, v]) => fd.append(k, v));
@@ -115,540 +96,484 @@ const FormularioInscripcion = () => {
     }
   };
 
-  /* ── Loading state ── */
   if (loadingDatos) {
     return (
-      <>
-        <style>{css}</style>
-        <div className="fi-page">
-          <div className="fi-loading">
-            <div className="fi-spinner" />
-            <p>Cargando información de la oferta...</p>
-          </div>
+      <div style={s.page}>
+        <style>{keyframes}</style>
+        <div style={s.loadingWrap}>
+          <div style={s.spinner} />
+          <p style={s.loadingText}>Cargando información...</p>
         </div>
-      </>
+      </div>
     );
   }
 
-  /* ── Invalid link ── */
   if (!oferta) {
     return (
-      <>
-        <style>{css}</style>
-        <div className="fi-page">
-          <div className="fi-invalid">
-            <div className="fi-invalid__icon">
-              <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
-              </svg>
-            </div>
-            <h2 className="fi-invalid__title">Link no válido</h2>
-            <p className="fi-invalid__desc">Este enlace de inscripción no existe o ha expirado.</p>
-          </div>
+      <div style={s.page}>
+        <style>{keyframes}</style>
+        <div style={s.invalidWrap}>
+          <div style={s.invalidIcon}>⚠</div>
+          <h2 style={s.invalidTitle}>Link no válido</h2>
+          <p style={s.invalidDesc}>Este enlace de inscripción no existe o ha expirado.</p>
         </div>
-      </>
+      </div>
     );
   }
 
-  const pct = oferta.cupo_maximo
-    ? Math.round(((oferta.cupo_maximo - oferta.cupos_disponibles) / oferta.cupo_maximo) * 100)
-    : 0;
+  const fInicio = oferta.fechas?.inicio
+    ? new Date(oferta.fechas.inicio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—';
+  const fFin = oferta.fechas?.fin
+    ? new Date(oferta.fechas.fin).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—';
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="fi-page">
+    <div style={s.page}>
+      <style>{keyframes}</style>
 
-        {/* ── Top brand bar ── */}
-        <header className="fi-topbar">
-          <div className="fi-topbar__brand">
-            <div className="fi-topbar__mark">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect width="16" height="16" rx="4" fill="white" fillOpacity=".15"/>
-                <path d="M3.5 8C3.5 5.515 5.515 3.5 8 3.5v0c2.485 0 4.5 2.015 4.5 4.5V12.5H8C5.515 12.5 3.5 10.485 3.5 8v0z" fill="white"/>
-              </svg>
-            </div>
-            <span className="fi-topbar__name">Gestionytics</span>
-            <span className="fi-topbar__sep">·</span>
-            <span className="fi-topbar__sub">SENA Portal</span>
+      {/* Top bar */}
+      <div style={s.topbar}>
+        <div style={s.topbarBrand}>
+          <div style={s.topbarMark}>
+            <span style={s.topbarMarkText}>G</span>
           </div>
-          <img
-            src="https://www.sena.edu.co/Style%20Library/alayout/images/logoSena.png"
-            alt="SENA"
-            className="fi-topbar__logo"
-          />
-        </header>
+          <span style={s.topbarName}>GestionTICS</span>
+          <span style={s.topbarSep}>·</span>
+          <span style={s.topbarSub}>SENA</span>
+        </div>
+        <img
+          src="https://www.sena.edu.co/Style%20Library/alayout/images/logoSena.png"
+          alt="SENA"
+          style={s.topbarLogo}
+        />
+      </div>
 
-        <div className="fi-layout">
+      <div style={s.body}>
 
-          {/* ── Left: oferta card ── */}
-          <aside className="fi-aside">
-
-            <div className="fi-aside__badge">
-              <span className="fi-badge__dot" />
-              Inscripción abierta
-            </div>
-
-            <h2 className="fi-aside__program">
-              {oferta.programa_formacion?.nombre_programa}
-            </h2>
-
-            <div className="fi-aside__code">
-              <span className="fi-code-label">Código</span>
-              <span className="fi-code-value">{oferta.programa_formacion?.codigo}</span>
-            </div>
-
-            <div className="fi-aside__divider" />
-
-            <div className="fi-meta-list">
-              <MetaRow icon={<IcCalendar />} label="Inicio" value={new Date(oferta.fechas?.inicio).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' })} />
-              <MetaRow icon={<IcCalendar />} label="Fin"    value={new Date(oferta.fechas?.fin).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' })} />
-              <MetaRow icon={<IcPin />}      label="Municipio" value={oferta.ubicacion?.municipio?.nombre} />
-              <MetaRow icon={<IcBuilding />} label="Empresa"   value={oferta.empresa_solicitante?.nombre} />
-            </div>
-
-            <div className="fi-aside__divider" />
-
-            {/* Cupos bar */}
-            <div className="fi-cupos">
-              <div className="fi-cupos__labels">
-                <span>Cupos disponibles</span>
-                <strong>{oferta.cupos_disponibles} / {oferta.cupo_maximo}</strong>
-              </div>
-              <div className="fi-cupos__track">
-                <div className="fi-cupos__fill" style={{ width: `${pct}%` }} />
+        {/* Hero card */}
+        <div style={s.heroCard}>
+          <div style={s.heroStripe} />
+          <div style={s.heroContent}>
+            <div style={s.heroLeft}>
+              <span style={s.heroBadge}>✓ Inscripción abierta</span>
+              <h1 style={s.heroTitle}>{oferta.programa_formacion?.nombre_programa}</h1>
+              <div style={s.heroPills}>
+                <span style={s.pill}>📅 {fInicio} – {fFin}</span>
+                <span style={s.pill}>📍 {oferta.ubicacion?.municipio?.nombre || '—'}</span>
+                <span style={s.pill}>🏢 {oferta.empresa_solicitante?.nombre || '—'}</span>
+                <span style={s.pill}>👥 {oferta.cupo_maximo} cupos</span>
+                {oferta.es_campesena
+                  ? <span style={{ ...s.pill, ...s.pillCamp }}>🌾 Campesena</span>
+                  : <span style={{ ...s.pill, ...s.pillReg }}>🌿 Regular</span>}
               </div>
             </div>
+            <div style={s.heroRight}>
+              <span style={s.heroCodeLabel}>Código</span>
+              <span style={s.heroCode}>{oferta.programa_formacion?.codigo}</span>
+            </div>
+          </div>
+        </div>
 
-            <div className={`fi-aside__tag ${oferta.es_campesena ? 'fi-aside__tag--campesena' : 'fi-aside__tag--regular'}`}>
-              {oferta.es_campesena ? '🌾 Oferta Campesena' : '🌿 Oferta Regular'}
+        {/* Alerts */}
+        {error && (
+          <div style={s.alertError}>
+            <span>⚠ {error}</span>
+            <button style={s.alertClose} onClick={() => setError('')}>×</button>
+          </div>
+        )}
+        {success && (
+          <div style={s.alertSuccess}>
+            <span>✓ {success}</span>
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={s.form}>
+
+          {/* Sección 1 */}
+          <div style={s.card}>
+            <div style={s.sectionHeader}>
+              <div style={s.sectionNumBox}>01</div>
+              <span style={s.sectionTitle}>Datos personales</span>
+            </div>
+            <div style={s.divider} />
+
+            <div style={s.grid2}>
+              <div style={s.field}>
+                <label style={s.label}>Nombres <span style={s.req}>*</span></label>
+                <input style={s.input} type="text" name="nombres"
+                  value={formData.nombres} onChange={handleChange}
+                  placeholder="Juan Carlos" required />
+              </div>
+              <div style={s.field}>
+                <label style={s.label}>Apellidos <span style={s.req}>*</span></label>
+                <input style={s.input} type="text" name="apellidos"
+                  value={formData.apellidos} onChange={handleChange}
+                  placeholder="Pérez González" required />
+              </div>
             </div>
 
-          </aside>
-
-          {/* ── Right: form ── */}
-          <main className="fi-main">
-            <div className="fi-form-header">
-              <h1 className="fi-form-title">Formulario de Inscripción</h1>
-              <p className="fi-form-sub">Completa todos los campos para registrar tu solicitud.</p>
-            </div>
-
-            {error   && <Alert type="error"   text={error}   onClose={() => setError('')} />}
-            {success && <Alert type="success" text={success} />}
-
-            <form onSubmit={handleSubmit} className="fi-form">
-
-              <FieldRow>
-                <Field label="Nombres" required>
-                  <input className="fi-input" type="text" name="nombres" value={formData.nombres}
-                    onChange={handleChange} placeholder="Juan Carlos" required />
-                </Field>
-                <Field label="Apellidos" required>
-                  <input className="fi-input" type="text" name="apellidos" value={formData.apellidos}
-                    onChange={handleChange} placeholder="Pérez González" required />
-                </Field>
-              </FieldRow>
-
-              <FieldRow>
-                <Field label="Tipo de Documento" required>
-                  <select className="fi-select" name="tipo_documento" value={formData.tipo_documento}
-                    onChange={handleChange} required>
+            <div style={s.grid2}>
+              <div style={s.field}>
+                <label style={s.label}>Tipo de documento <span style={s.req}>*</span></label>
+                <div style={s.selectWrap}>
+                  <select style={s.select} name="tipo_documento"
+                    value={formData.tipo_documento} onChange={handleChange} required>
                     <option value="">Seleccione...</option>
                     {tiposDocumento.map(t => (
                       <option key={t._id} value={t._id}>{t.nombre}</option>
                     ))}
                   </select>
-                </Field>
-                <Field label="Número de Documento" required>
-                  <input className="fi-input" type="text" name="numero_documento" value={formData.numero_documento}
-                    onChange={handleChange} placeholder="123456789" required />
-                </Field>
-              </FieldRow>
+                  <span style={s.selectArrow}>▾</span>
+                </div>
+              </div>
+              <div style={s.field}>
+                <label style={s.label}>Número de documento <span style={s.req}>*</span></label>
+                <input style={s.input} type="text" name="numero_documento"
+                  value={formData.numero_documento} onChange={handleChange}
+                  placeholder="1234567890" required />
+              </div>
+            </div>
+          </div>
 
-              <Field label="Caracterización" required>
-                <select className="fi-select" name="caracterizacion" value={formData.caracterizacion}
-                  onChange={handleChange} required>
+          {/* Sección 2 */}
+          <div style={s.card}>
+            <div style={s.sectionHeader}>
+              <div style={s.sectionNumBox}>02</div>
+              <span style={s.sectionTitle}>Contacto y caracterización</span>
+            </div>
+            <div style={s.divider} />
+
+            <div style={{ ...s.field, marginBottom: '14px' }}>
+              <label style={s.label}>Caracterización <span style={s.req}>*</span></label>
+              <div style={s.selectWrap}>
+                <select style={s.select} name="caracterizacion"
+                  value={formData.caracterizacion} onChange={handleChange} required>
                   <option value="">Seleccione...</option>
                   {caracterizaciones.map(c => (
                     <option key={c._id} value={c._id}>{c.tipo_caracterizacion}</option>
                   ))}
                 </select>
-              </Field>
+                <span style={s.selectArrow}>▾</span>
+              </div>
+            </div>
 
-              <FieldRow>
-                <Field label="Teléfono" required>
-                  <input className="fi-input" type="tel" name="telefono" value={formData.telefono}
-                    onChange={handleChange} placeholder="3001234567" required />
-                </Field>
-                <Field label="Correo Electrónico" required>
-                  <input className="fi-input" type="email" name="correo" value={formData.correo}
-                    onChange={handleChange} placeholder="correo@ejemplo.com" required />
-                </Field>
-              </FieldRow>
+            <div style={s.grid2}>
+              <div style={s.field}>
+                <label style={s.label}>Teléfono <span style={s.req}>*</span></label>
+                <input style={s.input} type="tel" name="telefono"
+                  value={formData.telefono} onChange={handleChange}
+                  placeholder="3001234567" required />
+              </div>
+              <div style={s.field}>
+                <label style={s.label}>Correo electrónico <span style={s.req}>*</span></label>
+                <input style={s.input} type="email" name="correo"
+                  value={formData.correo} onChange={handleChange}
+                  placeholder="correo@ejemplo.com" required />
+              </div>
+            </div>
+          </div>
 
-              {/* File upload */}
-              <Field label="Cédula escaneada (PDF)" required>
-                <label className="fi-file-drop">
-                  <input type="file" name="pdf_cedula" accept=".pdf"
-                    onChange={handleFileChange} style={{ display: 'none' }} required />
-                  <div className="fi-file-drop__icon">
-                    <IcUpload />
-                  </div>
-                  {fileName ? (
-                    <div>
-                      <p className="fi-file-drop__selected">{fileName}</p>
-                      <p className="fi-file-drop__hint">Haz clic para cambiar el archivo</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="fi-file-drop__title">Seleccionar PDF</p>
-                      <p className="fi-file-drop__hint">Solo archivos .pdf</p>
-                    </div>
-                  )}
-                </label>
-              </Field>
+          {/* Sección 3 */}
+          <div style={s.card}>
+            <div style={s.sectionHeader}>
+              <div style={s.sectionNumBox}>03</div>
+              <span style={s.sectionTitle}>Documento adjunto</span>
+            </div>
+            <div style={s.divider} />
 
-              <button type="submit" className={`fi-submit ${loading ? 'fi-submit--loading' : ''}`} disabled={loading}>
-                {loading ? (
-                  <><span className="fi-btn-spinner" /> Procesando...</>
-                ) : (
-                  <><IcCheck /> Inscribirme</>
-                )}
-              </button>
+            <label style={s.fileZone}>
+              <input type="file" name="pdf_cedula" accept=".pdf"
+                onChange={handleFileChange} style={{ display: 'none' }} required />
+              <div style={s.fileIconBox}>
+                <span style={s.fileIconText}>PDF</span>
+              </div>
+              <div>
+                <p style={s.fileTitle}>{fileName || 'Subir cédula escaneada'}</p>
+                <p style={s.fileHint}>
+                  {fileName ? 'Clic para cambiar el archivo' : 'Solo archivos .pdf · máx. 5 MB'}
+                </p>
+              </div>
+            </label>
+          </div>
 
-            </form>
-          </main>
-        </div>
+          {/* Submit */}
+          <div style={s.formFooter}>
+            <span style={s.footerHint}>🔒 Tus datos están protegidos</span>
+            <button
+              type="submit"
+              style={loading ? { ...s.btnPrimary, ...s.btnDisabled } : s.btnPrimary}
+              disabled={loading}
+            >
+              {loading ? 'Procesando...' : 'Enviar inscripción →'}
+            </button>
+          </div>
 
-        <footer className="fi-footer">
+        </form>
+
+        <footer style={s.footer}>
           © 2025 SENA · Servicio Nacional de Aprendizaje
         </footer>
       </div>
-    </>
+    </div>
   );
 };
 
-/* ── Helper components ── */
-const FieldRow = ({ children }) => <div className="fi-field-row">{children}</div>;
-
-const Field = ({ label, required, children }) => (
-  <div className="fi-field">
-    <label className="fi-label">{label}{required && <span className="fi-required">*</span>}</label>
-    {children}
-  </div>
-);
-
-const Alert = ({ type, text, onClose }) => (
-  <div className={`fi-alert fi-alert--${type}`}>
-    {type === 'error' ? <IcError /> : <IcCheckCircle />}
-    <span>{text}</span>
-    {onClose && <button className="fi-alert__close" onClick={onClose}>×</button>}
-  </div>
-);
-
-const MetaRow = ({ icon, label, value }) => (
-  <div className="fi-meta-row">
-    <span className="fi-meta-row__icon">{icon}</span>
-    <div>
-      <span className="fi-meta-row__label">{label}</span>
-      <span className="fi-meta-row__value">{value || '—'}</span>
-    </div>
-  </div>
-);
-
-/* ── Icons ── */
-const IcCalendar  = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>;
-const IcPin       = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 21C12 21 5 13.5 5 8.5a7 7 0 1114 0C19 13.5 12 21 12 21z"/><circle cx="12" cy="8.5" r="2.5"/></svg>;
-const IcBuilding  = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16M5 21h14M9 7h1m-1 4h1m4-4h1m-1 4h1M9 15h6"/></svg>;
-const IcUpload    = () => <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M16 8l-4-4-4 4M12 4v12"/></svg>;
-const IcCheck     = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>;
-const IcCheckCircle = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>;
-const IcError     = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>;
-
-/* ── Styles ── */
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  .fi-page {
-    min-height: 100vh;
-    background: #f0f2f5;
-    font-family: 'DM Sans', sans-serif;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* ── Topbar ── */
-  .fi-topbar {
-    background: #0a3d2e;
-    height: 52px;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 32px;
-    flex-shrink: 0;
-  }
-  .fi-topbar__brand {
-    display: flex; align-items: center; gap: 10px;
-  }
-  .fi-topbar__mark {
-    width: 28px; height: 28px;
-    background: rgba(255,255,255,0.12);
-    border-radius: 7px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .fi-topbar__name {
-    font-size: 14px; font-weight: 700; color: white;
-  }
-  .fi-topbar__sep { color: rgba(255,255,255,0.25); font-size: 14px; }
-  .fi-topbar__sub {
-    font-size: 12px; color: rgba(255,255,255,0.45); letter-spacing: .04em;
-  }
-  .fi-topbar__logo {
-    height: 26px; width: auto;
-    filter: brightness(0) invert(1) opacity(.6);
-  }
-
-  /* ── Layout ── */
-  .fi-layout {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    gap: 24px;
-    max-width: 960px;
-    width: 100%;
-    margin: 28px auto;
-    padding: 0 24px;
-    align-items: start;
-  }
-
-  @media (max-width: 700px) {
-    .fi-layout { grid-template-columns: 1fr; }
-  }
-
-  /* ── Aside ── */
-  .fi-aside {
-    background: white;
-    border: 1px solid #e8eaed;
-    border-radius: 14px;
-    padding: 24px;
-    position: sticky;
-    top: 24px;
-  }
-  .fi-aside__badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: #ecfdf5; border: 1px solid #bbf7d0;
-    border-radius: 20px; padding: 4px 11px;
-    font-size: 11px; font-weight: 600; color: #065f46;
-    letter-spacing: .05em;
-    margin-bottom: 14px;
-  }
-  .fi-badge__dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: #16a34a;
-  }
-  .fi-aside__program {
-    font-size: 15px; font-weight: 700;
-    color: #0f172a; line-height: 1.35;
-    margin-bottom: 12px;
-  }
-  .fi-aside__code {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 16px;
-  }
-  .fi-code-label {
-    font-size: 10px; font-weight: 600;
-    color: #94a3b8; text-transform: uppercase; letter-spacing: .07em;
-  }
-  .fi-code-value {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px; font-weight: 500;
-    background: #f1f5f9; color: #475569;
-    padding: 2px 8px; border-radius: 5px;
-  }
-  .fi-aside__divider {
-    height: 1px; background: #f1f5f9; margin: 16px 0;
-  }
-  .fi-meta-list { display: flex; flex-direction: column; gap: 10px; }
-  .fi-meta-row {
-    display: flex; align-items: flex-start; gap: 9px;
-  }
-  .fi-meta-row__icon { color: #94a3b8; flex-shrink: 0; margin-top: 2px; }
-  .fi-meta-row__label {
-    display: block; font-size: 10px; font-weight: 600;
-    color: #94a3b8; text-transform: uppercase; letter-spacing: .06em;
-  }
-  .fi-meta-row__value {
-    display: block; font-size: 13px; font-weight: 500; color: #334155;
-  }
-  .fi-cupos { margin-bottom: 16px; }
-  .fi-cupos__labels {
-    display: flex; justify-content: space-between;
-    font-size: 12px; color: #64748b; margin-bottom: 6px;
-  }
-  .fi-cupos__track {
-    height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden;
-  }
-  .fi-cupos__fill {
-    height: 100%;
-    background: linear-gradient(90deg, #0a3d2e, #16a34a);
-    border-radius: 99px;
-    transition: width .6s ease;
-    min-width: 4px;
-  }
-  .fi-aside__tag {
-    display: inline-block;
-    font-size: 12px; font-weight: 600;
-    padding: 5px 12px; border-radius: 20px;
-  }
-  .fi-aside__tag--regular   { background: #f0fdf4; color: #166534; }
-  .fi-aside__tag--campesena { background: #fffbeb; color: #92400e; }
-
-  /* ── Form card ── */
-  .fi-main {
-    background: white;
-    border: 1px solid #e8eaed;
-    border-radius: 14px;
-    padding: 28px 28px 32px;
-  }
-  .fi-form-header { margin-bottom: 22px; }
-  .fi-form-title {
-    font-size: 20px; font-weight: 700; color: #0f172a;
-    margin-bottom: 5px;
-  }
-  .fi-form-sub { font-size: 13.5px; color: #64748b; }
-
-  /* ── Alerts ── */
-  .fi-alert {
-    display: flex; align-items: center; gap: 9px;
-    padding: 10px 13px; border-radius: 8px;
-    font-size: 13px; font-weight: 500;
-    margin-bottom: 18px;
-    animation: fadeIn .25s ease;
-  }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-  .fi-alert--error   { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-  .fi-alert--success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-  .fi-alert__close {
-    margin-left: auto; background: none; border: none;
-    color: inherit; cursor: pointer; font-size: 18px; line-height: 1;
-  }
-
-  /* ── Form ── */
-  .fi-form { display: flex; flex-direction: column; gap: 16px; }
-  .fi-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 520px) { .fi-field-row { grid-template-columns: 1fr; } }
-
-  .fi-field { display: flex; flex-direction: column; gap: 5px; }
-  .fi-label {
-    font-size: 12.5px; font-weight: 600;
-    color: #374151; display: flex; align-items: center; gap: 3px;
-  }
-  .fi-required { color: #ef4444; font-size: 13px; }
-
-  .fi-input, .fi-select {
-    width: 100%;
-    padding: 9px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13.5px;
-    color: #0f172a;
-    background: white;
-    outline: none;
-    transition: border-color .18s, box-shadow .18s;
-    appearance: none;
-  }
-  .fi-input::placeholder { color: #94a3b8; }
-  .fi-input:focus, .fi-select:focus {
-    border-color: #0a3d2e;
-    box-shadow: 0 0 0 3px rgba(10,61,46,0.08);
-  }
-  .fi-select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 34px;
-  }
-
-  /* ── File upload ── */
-  .fi-file-drop {
-    display: flex; align-items: center; gap: 14px;
-    padding: 14px 16px;
-    border: 1.5px dashed #cbd5e1;
-    border-radius: 10px;
-    cursor: pointer;
-    background: #fafbfc;
-    transition: border-color .18s, background .18s;
-  }
-  .fi-file-drop:hover { border-color: #0a3d2e; background: #f0fdf4; }
-  .fi-file-drop__icon { color: #94a3b8; flex-shrink: 0; }
-  .fi-file-drop:hover .fi-file-drop__icon { color: #0a3d2e; }
-  .fi-file-drop__title { font-size: 13.5px; font-weight: 600; color: #334155; }
-  .fi-file-drop__selected { font-size: 13px; font-weight: 600; color: #0a3d2e; font-family: 'DM Mono', monospace; }
-  .fi-file-drop__hint { font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
-
-  /* ── Submit ── */
-  .fi-submit {
-    margin-top: 6px;
-    width: 100%;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 12px 20px;
-    background: #0a3d2e;
-    color: white;
-    border: none; border-radius: 9px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px; font-weight: 600;
-    cursor: pointer;
-    transition: background .2s, transform .15s;
-  }
-  .fi-submit:hover:not(:disabled) { background: #0d5240; transform: translateY(-1px); }
-  .fi-submit:active:not(:disabled) { transform: none; }
-  .fi-submit--loading { opacity: .7; cursor: not-allowed; }
-  .fi-btn-spinner {
-    width: 14px; height: 14px;
-    border: 2px solid rgba(255,255,255,.3);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
-  }
+const keyframes = `
   @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ── Loading ── */
-  .fi-loading {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 14px;
-    color: #64748b; font-size: 14px;
-  }
-  .fi-spinner {
-    width: 34px; height: 34px;
-    border: 3px solid #e2e8f0;
-    border-top-color: #0a3d2e;
-    border-radius: 50%;
-    animation: spin .8s linear infinite;
-  }
-
-  /* ── Invalid ── */
-  .fi-invalid {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 12px;
-    text-align: center; padding: 60px 20px;
-  }
-  .fi-invalid__icon {
-    width: 60px; height: 60px;
-    background: #fef2f2; border-radius: 14px;
-    display: flex; align-items: center; justify-content: center;
-    color: #ef4444;
-  }
-  .fi-invalid__title { font-size: 18px; font-weight: 700; color: #0f172a; }
-  .fi-invalid__desc  { font-size: 14px; color: #64748b; }
-
-  /* ── Footer ── */
-  .fi-footer {
-    text-align: center;
-    padding: 20px;
-    font-size: 11.5px; color: #cbd5e1;
-    letter-spacing: .02em;
-  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:none; } }
 `;
+
+/* Paleta SENA: blanco, verde (#39a900) y verde claro (#e8f5e0) */
+const VERDE      = '#39a900';
+const VERDE_OSC  = '#2d8600';
+const VERDE_LITE = '#e8f5e0';
+const VERDE_MID  = '#c5e8a0';
+const GRIS_TEXT  = '#3a3a3a';
+const GRIS_MUTED = '#7a7a7a';
+const BORDE      = '#d6ecc4';
+
+const s = {
+  page: {
+    minHeight: '100vh',
+    background: '#f4f9f0',
+    fontFamily: "'Segoe UI', 'DM Sans', sans-serif",
+    display: 'flex',
+    flexDirection: 'column'
+  },
+  /* Topbar */
+  topbar: {
+    background: VERDE,
+    height: '52px',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '0 28px',
+    flexShrink: 0
+  },
+  topbarBrand: { display: 'flex', alignItems: 'center', gap: '10px' },
+  topbarMark: {
+    width: '28px', height: '28px', borderRadius: '7px',
+    background: 'rgba(255,255,255,0.2)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center'
+  },
+  topbarMarkText: { fontSize: '13px', fontWeight: 700, color: 'white' },
+  topbarName: { fontSize: '14px', fontWeight: 700, color: 'white' },
+  topbarSep: { color: 'rgba(255,255,255,0.35)', fontSize: '14px' },
+  topbarSub: { fontSize: '12px', color: 'rgba(255,255,255,0.6)' },
+  topbarLogo: {
+    height: '26px', width: 'auto',
+    filter: 'brightness(0) invert(1) opacity(0.85)'
+  },
+  /* Body */
+  body: {
+    flex: 1,
+    maxWidth: '700px',
+    width: '100%',
+    margin: '0 auto',
+    padding: '28px 20px 48px'
+  },
+  /* Hero */
+  heroCard: {
+    background: 'white',
+    border: `1px solid ${BORDE}`,
+    borderRadius: '16px',
+    marginBottom: '18px',
+    overflow: 'hidden'
+  },
+  heroStripe: {
+    height: '6px',
+    background: `linear-gradient(90deg, ${VERDE} 0%, ${VERDE_MID} 100%)`
+  },
+  heroContent: {
+    display: 'flex', alignItems: 'flex-start',
+    justifyContent: 'space-between', gap: '16px',
+    padding: '20px 22px 18px'
+  },
+  heroLeft: { flex: 1 },
+  heroBadge: {
+    display: 'inline-block',
+    background: VERDE_LITE,
+    color: VERDE_OSC,
+    border: `1px solid ${VERDE_MID}`,
+    borderRadius: '99px',
+    padding: '3px 11px',
+    fontSize: '11px', fontWeight: 600,
+    letterSpacing: '.04em',
+    marginBottom: '10px'
+  },
+  heroTitle: {
+    fontSize: '17px', fontWeight: 700,
+    color: GRIS_TEXT, margin: '0 0 12px', lineHeight: 1.35
+  },
+  heroPills: { display: 'flex', flexWrap: 'wrap', gap: '6px' },
+  pill: {
+    display: 'inline-block',
+    background: VERDE_LITE,
+    color: GRIS_MUTED,
+    border: `1px solid ${BORDE}`,
+    borderRadius: '99px',
+    padding: '3px 10px', fontSize: '11px'
+  },
+  pillCamp: { background: '#fff8e1', color: '#b45309', borderColor: '#fde68a' },
+  pillReg:  { background: VERDE_LITE, color: VERDE_OSC, borderColor: VERDE_MID },
+  heroRight: {
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'flex-end', gap: '4px', flexShrink: 0
+  },
+  heroCodeLabel: {
+    fontSize: '10px', color: GRIS_MUTED,
+    letterSpacing: '.08em', textTransform: 'uppercase'
+  },
+  heroCode: {
+    fontFamily: 'monospace', fontSize: '13px', fontWeight: 600,
+    color: VERDE_OSC,
+    background: VERDE_LITE,
+    border: `1px solid ${BORDE}`,
+    padding: '4px 10px', borderRadius: '8px'
+  },
+  /* Alerts */
+  alertError: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    background: '#fef2f2', border: '1px solid #fecaca',
+    borderRadius: '10px', padding: '10px 14px',
+    fontSize: '13px', color: '#b91c1c',
+    marginBottom: '14px', animation: 'fadeIn .2s ease'
+  },
+  alertSuccess: {
+    background: VERDE_LITE, border: `1px solid ${VERDE_MID}`,
+    borderRadius: '10px', padding: '10px 14px',
+    fontSize: '13px', color: VERDE_OSC,
+    marginBottom: '14px', animation: 'fadeIn .2s ease'
+  },
+  alertClose: {
+    background: 'none', border: 'none',
+    cursor: 'pointer', color: '#b91c1c',
+    fontSize: '18px', lineHeight: 1, padding: 0
+  },
+  /* Form */
+  form: { display: 'flex', flexDirection: 'column', gap: '14px' },
+  card: {
+    background: 'white',
+    border: `1px solid ${BORDE}`,
+    borderRadius: '14px',
+    padding: '20px 22px'
+  },
+  sectionHeader: {
+    display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px'
+  },
+  sectionNumBox: {
+    width: '26px', height: '26px', borderRadius: '7px',
+    background: VERDE_LITE,
+    border: `1px solid ${VERDE_MID}`,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '11px', fontWeight: 700, color: VERDE_OSC,
+    fontFamily: 'monospace', flexShrink: 0
+  },
+  sectionTitle: {
+    fontSize: '14px', fontWeight: 700, color: GRIS_TEXT
+  },
+  divider: {
+    height: '1px', background: VERDE_LITE, marginBottom: '16px'
+  },
+  grid2: {
+    display: 'grid', gridTemplateColumns: '1fr 1fr',
+    gap: '12px', marginBottom: '12px'
+  },
+  field: { display: 'flex', flexDirection: 'column', gap: '5px' },
+  label: { fontSize: '12px', fontWeight: 600, color: GRIS_TEXT },
+  req: { color: '#ef4444' },
+  input: {
+    padding: '9px 13px',
+    border: `1px solid ${BORDE}`,
+    borderRadius: '9px',
+    fontSize: '14px', color: GRIS_TEXT,
+    background: '#fafffe',
+    outline: 'none',
+    width: '100%', boxSizing: 'border-box',
+    fontFamily: 'inherit',
+    transition: 'border-color .15s, box-shadow .15s'
+  },
+  selectWrap: { position: 'relative' },
+  select: {
+    width: '100%',
+    padding: '9px 32px 9px 13px',
+    border: `1px solid ${BORDE}`,
+    borderRadius: '9px',
+    fontSize: '14px', color: GRIS_TEXT,
+    background: '#fafffe',
+    outline: 'none', appearance: 'none',
+    fontFamily: 'inherit', boxSizing: 'border-box'
+  },
+  selectArrow: {
+    position: 'absolute', right: '11px', top: '50%',
+    transform: 'translateY(-50%)',
+    fontSize: '13px', color: VERDE, pointerEvents: 'none'
+  },
+  /* File */
+  fileZone: {
+    display: 'flex', alignItems: 'center', gap: '14px',
+    border: `1.5px dashed ${VERDE_MID}`,
+    borderRadius: '10px', padding: '16px',
+    cursor: 'pointer', background: VERDE_LITE,
+    transition: 'border-color .15s, background .15s'
+  },
+  fileIconBox: {
+    width: '42px', height: '42px', borderRadius: '9px',
+    background: VERDE,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0
+  },
+  fileIconText: {
+    fontSize: '10px', fontWeight: 800, color: 'white', letterSpacing: '.06em'
+  },
+  fileTitle: { fontSize: '13px', fontWeight: 600, color: GRIS_TEXT, margin: 0 },
+  fileHint: { fontSize: '11px', color: GRIS_MUTED, margin: '3px 0 0' },
+  /* Footer del form */
+  formFooter: {
+    display: 'flex', alignItems: 'center',
+    justifyContent: 'space-between', gap: '12px',
+    marginTop: '4px', flexWrap: 'wrap'
+  },
+  footerHint: { fontSize: '12px', color: GRIS_MUTED },
+  btnPrimary: {
+    display: 'inline-flex', alignItems: 'center', gap: '8px',
+    padding: '11px 28px',
+    background: VERDE, color: 'white',
+    border: 'none', borderRadius: '10px',
+    fontSize: '14px', fontWeight: 700,
+    cursor: 'pointer', fontFamily: 'inherit',
+    letterSpacing: '.01em'
+  },
+  btnDisabled: { opacity: 0.6, cursor: 'not-allowed' },
+  /* Loading */
+  loadingWrap: {
+    flex: 1, display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    gap: '14px', minHeight: '60vh'
+  },
+  spinner: {
+    width: '30px', height: '30px',
+    border: `2.5px solid ${VERDE_MID}`,
+    borderTopColor: VERDE,
+    borderRadius: '50%',
+    animation: 'spin .7s linear infinite'
+  },
+  loadingText: { fontSize: '14px', color: GRIS_MUTED },
+  /* Invalid */
+  invalidWrap: {
+    flex: 1, display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    gap: '10px', minHeight: '60vh',
+    textAlign: 'center', padding: '40px 20px'
+  },
+  invalidIcon: { fontSize: '36px' },
+  invalidTitle: { fontSize: '18px', fontWeight: 700, color: GRIS_TEXT },
+  invalidDesc: { fontSize: '14px', color: GRIS_MUTED },
+  /* Footer */
+  footer: {
+    textAlign: 'center', padding: '24px 20px',
+    fontSize: '11px', color: GRIS_MUTED
+  }
+};
 
 export default FormularioInscripcion;

@@ -4,6 +4,8 @@ import SeleccionarTipoOferta from './seleccionar_tipo_oferta';
 import FormularioCampesenaCompleto from './formulario_campesena_completo';
 import Swal from 'sweetalert2';
 import HorarioPicker from './HorarioPicker';
+import { calcularFechaFin } from './horarioUtils';
+
 
 // ===== COMPONENTE AUTOCOMPLETE REUTILIZABLE =====
 const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, required }) => {
@@ -13,10 +15,7 @@ const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, req
   const contenedorRef = useRef(null);
 
   useEffect(() => {
-    if (!valorId) {
-      setTexto('');
-      return;
-    }
+    if (!valorId) { setTexto(''); return; }
     const opcion = opciones.find(o => o._id === valorId);
     if (opcion) setTexto(displayFn(opcion));
   }, [valorId, opciones, displayFn]);
@@ -38,11 +37,10 @@ const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, req
     : opciones;
 
   const handleInput = (e) => {
-    const value = e.target.value;
-    setTexto(value);
+    setTexto(e.target.value);
     setAbierto(true);
     setResaltado(-1);
-    if (!value) onChange('');
+    if (!e.target.value) onChange('');
   };
 
   const handleSeleccionar = (opcion) => {
@@ -54,35 +52,10 @@ const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, req
 
   const handleKeyDown = (e) => {
     if (!abierto || filtradas.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setResaltado(r => Math.min(r + 1, filtradas.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setResaltado(r => Math.max(r - 1, 0));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (resaltado >= 0) handleSeleccionar(filtradas[resaltado]);
-    } else if (e.key === 'Escape') {
-      setAbierto(false);
-    }
-  };
-
-  const handleFocus = () => {
-    if (opciones.length > 0) setAbierto(true);
-  };
-
-  const handleBlur = () => {
-    setTimeout(() => {
-      const opcion = opciones.find(o => o._id === valorId);
-      if (opcion && texto === displayFn(opcion)) {
-        setTexto(displayFn(opcion));
-      } else {
-        setTexto('');
-        onChange('');
-      }
-      setAbierto(false);
-    }, 150);
+    if (e.key === 'ArrowDown') { e.preventDefault(); setResaltado(r => Math.min(r + 1, filtradas.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setResaltado(r => Math.max(r - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (resaltado >= 0) handleSeleccionar(filtradas[resaltado]); }
+    else if (e.key === 'Escape') setAbierto(false);
   };
 
   return (
@@ -91,8 +64,14 @@ const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, req
         type="text"
         value={texto}
         onChange={handleInput}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
+        onFocus={() => { if (opciones.length > 0) setAbierto(true); }}
+        onBlur={() => {
+          setTimeout(() => {
+            const opcion = opciones.find(o => o._id === valorId);
+            if (!opcion) { setTexto(''); onChange(''); }
+            setAbierto(false);
+          }, 150);
+        }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         style={styles.autocompleteInput}
@@ -106,14 +85,8 @@ const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, req
           {filtradas.map((opcion, idx) => (
             <li
               key={opcion._id}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                handleSeleccionar(opcion);
-              }}
-              style={{
-                ...styles.autocompleteItem,
-                ...(idx === resaltado ? styles.autocompleteItemResaltado : {})
-              }}
+              onPointerDown={(e) => { e.preventDefault(); handleSeleccionar(opcion); }}
+              style={{ ...styles.autocompleteItem, ...(idx === resaltado ? styles.autocompleteItemResaltado : {}) }}
               onMouseEnter={() => setResaltado(idx)}
             >
               {displayFn(opcion)}
@@ -129,19 +102,17 @@ const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, req
   );
 };
 
+
 // ===== COMPONENTE PRINCIPAL =====
 const CrearOferta = ({ onOfertaCreada }) => {
   const [modo, setModo] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [mostrarFormularioEmpresa, setMostrarFormularioEmpresa] = useState(false);
-  const [instructoresVisibles, setInstructoresVisibles] = useState({
-    primerInstructor: '',
-    segundoInstructor: ''
-  });
 
   const [tiposProgramaIds, setTiposProgramaIds] = useState({ regular: '', campesena: '' });
+
+  // Programa seleccionado con sus metadatos (duración, horario sugerido)
+  const [programaSeleccionado, setProgramaSeleccionado] = useState(null);
 
   const [formData, setFormData] = useState({
     programa_formacion: '',
@@ -176,6 +147,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
     numero_empleados: ''
   });
 
+  // ── Cargar datos iniciales ──
   useEffect(() => {
     cargarDatosIniciales();
 
@@ -195,8 +167,8 @@ const CrearOferta = ({ onOfertaCreada }) => {
             }
           }));
         }
-      } catch (error) {
-        console.warn('No se pudo leer el usuario en localStorage', error);
+      } catch (e) {
+        console.warn('No se pudo leer el usuario en localStorage', e);
       }
     }
   }, []);
@@ -233,22 +205,64 @@ const CrearOferta = ({ onOfertaCreada }) => {
     }
   }, [tiposPrograma]);
 
-  const determinarInstructores = (tipoProgramaId) => {
-    const tipoSeleccionado = tiposPrograma.find(t => t._id === tipoProgramaId);
-    if (!tipoSeleccionado) return { primero: '', segundo: '' };
-    const instructores = {
-      'Técnico': { primero: 'Empresarial', segundo: 'Popular' },
-      'Empresarial': { primero: 'Técnico', segundo: 'Popular' },
-      'Popular': { primero: 'Técnico', segundo: 'Empresarial' }
-    };
-    return instructores[tipoSeleccionado.nombre] || { primero: '', segundo: '' };
+  // ── Cuando cambia el programa seleccionado: poblar horario sugerido ──
+  const handleProgramaChange = (programaId) => {
+    const programa = programas.find(p => p._id === programaId);
+    setProgramaSeleccionado(programa || null);
+
+    setFormData(prev => {
+      const nuevoHorario = { ...prev.horario };
+
+      // Si el programa trae hora_inicio / hora_fin los pre-cargamos
+      if (programa?.hora_inicio) nuevoHorario.hora_inicio = programa.hora_inicio;
+      if (programa?.hora_fin)    nuevoHorario.hora_fin    = programa.hora_fin;
+
+      // Limpiar fecha fin para que se recalcule
+      return {
+        ...prev,
+        programa_formacion: programaId,
+        horario: nuevoHorario,
+        fechas: { ...prev.fechas, fin: '' }
+      };
+    });
   };
 
+  // ── Recalcular fecha fin automáticamente cuando cambien días, fecha inicio u horario ──
   useEffect(() => {
-    if (modo === 'campesena' && formData.tipo_programa) {
-      setInstructoresVisibles(determinarInstructores(formData.tipo_programa));
+    if (modo !== 'regular') return;
+
+    const duracion = programaSeleccionado?.duracion_maxima || programaSeleccionado?.duracion_horas || programaSeleccionado?.horas || 0;
+    if (!duracion) return;
+
+    const nuevaFechaFin = calcularFechaFin(
+      formData.fechas.inicio,
+      formData.horario.dias,
+      formData.horario.hora_inicio,
+      formData.horario.hora_fin,
+      duracion
+    );
+
+    if (nuevaFechaFin && nuevaFechaFin !== formData.fechas.fin) {
+      setFormData(prev => ({ ...prev, fechas: { ...prev.fechas, fin: nuevaFechaFin } }));
     }
-  }, [formData.tipo_programa, tiposPrograma, modo]);
+  }, [
+    formData.fechas.inicio,
+    formData.horario.dias,
+    formData.horario.hora_inicio,
+    formData.horario.hora_fin,
+    programaSeleccionado,
+    modo
+  ]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.');
+      setFormData({ ...formData, [parent]: { ...formData[parent], [child]: value } });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
 
   const handleNuevaEmpresaChange = (e) => {
     const { name, value } = e.target;
@@ -300,34 +314,36 @@ const CrearOferta = ({ onOfertaCreada }) => {
   const handleFileChange = (e) => {
     const { name, files } = e.target;
     if (files && files[0]) {
-      if (files[0].type !== 'application/pdf') {
-        Swal.fire({ icon: 'error', title: 'Formato incorrecto', text: 'Solo se permiten archivos PDF', timer: 3000, showConfirmButton: false });
-        return;
+      const file = files[0];
+      // La firma digital debe ser imagen PNG/JPG para renderizarse en el PDF generado.
+      // La carta sigue siendo PDF.
+      if (name === 'firma_digital_pdf') {
+        const tiposValidos = ['image/png', 'image/jpeg', 'image/jpg'];
+        if (!tiposValidos.includes(file.type)) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Formato incorrecto',
+            text: 'La firma digital debe ser una imagen PNG o JPG',
+            timer: 3500,
+            showConfirmButton: true,
+            confirmButtonColor: '#3498db'
+          });
+          e.target.value = '';
+          return;
+        }
+      } else {
+        if (file.type !== 'application/pdf') {
+          Swal.fire({ icon: 'error', title: 'Formato incorrecto', text: 'Solo se permiten archivos PDF', timer: 3000, showConfirmButton: false });
+          e.target.value = '';
+          return;
+        }
       }
-      if (files[0].size > 5 * 1024 * 1024) {
+      if (file.size > 5 * 1024 * 1024) {
         Swal.fire({ icon: 'error', title: 'Archivo demasiado grande', text: 'El archivo no puede superar los 5MB', timer: 3000, showConfirmButton: false });
+        e.target.value = '';
         return;
       }
-      setFormData({ ...formData, [name]: files[0] });
-    }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setFormData({ ...formData, [parent]: { ...formData[parent], [child]: value } });
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
-  };
-
-  const handleDiaChange = (e) => {
-    const { value, checked } = e.target;
-    if (checked) {
-      setFormData({ ...formData, horario: { ...formData.horario, dias: [...formData.horario.dias, value] } });
-    } else {
-      setFormData({ ...formData, horario: { ...formData.horario, dias: formData.horario.dias.filter(d => d !== value) } });
+      setFormData({ ...formData, [name]: file });
     }
   };
 
@@ -337,7 +353,8 @@ const CrearOferta = ({ onOfertaCreada }) => {
     if (!formData.tipo_oferta) { mostrarAlertaValidacion('Seleccione un tipo de oferta'); return false; }
     if (!formData.cupo_maximo) { mostrarAlertaValidacion('Ingrese el cupo máximo'); return false; }
     if (!formData.ambiente.nombre) { mostrarAlertaValidacion('El nombre del ambiente es obligatorio'); return false; }
-    if (!formData.fechas.inicio || !formData.fechas.fin) { mostrarAlertaValidacion('Ingrese las fechas de inicio y fin'); return false; }
+    if (!formData.fechas.inicio) { mostrarAlertaValidacion('Ingrese la fecha de inicio'); return false; }
+    if (!formData.fechas.fin) { mostrarAlertaValidacion('La fecha fin no pudo calcularse. Verifique los días y el horario.'); return false; }
     const fechaInicio = new Date(formData.fechas.inicio);
     const fechaFin = new Date(formData.fechas.fin);
     if (fechaFin <= fechaInicio) {
@@ -358,8 +375,6 @@ const CrearOferta = ({ onOfertaCreada }) => {
     if (!validarFormulario()) return;
 
     setLoading(true);
-    setError('');
-    setSuccess('');
 
     try {
       const tipoProgramaId = modo === 'regular' ? tiposProgramaIds.regular : tiposProgramaIds.campesena;
@@ -419,7 +434,6 @@ const CrearOferta = ({ onOfertaCreada }) => {
         return;
       }
       Swal.fire({ icon: 'success', title: '¡Oferta creada!', text: 'La oferta se ha guardado exitosamente', timer: 2000, showConfirmButton: false });
-
     } catch (error) {
       Swal.close();
       let mensajeError = error.message;
@@ -433,18 +447,20 @@ const CrearOferta = ({ onOfertaCreada }) => {
 
   if (!modo) return <SeleccionarTipoOferta onSeleccionar={setModo} />;
 
+  const duracionPrograma = programaSeleccionado?.duracion_maxima || programaSeleccionado?.duracion_horas || programaSeleccionado?.horas || null;
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
         <h2 style={styles.title}>
-          {modo === 'regular' ? ' Crear Oferta Regular' : 'Crear Oferta Campesena'}
+          {modo === 'regular' ? '📋 Crear Oferta Regular' : '🌱 Crear Oferta Campesena'}
         </h2>
         <button onClick={() => setModo(null)} style={styles.cambiarModoButton}>← Volver</button>
       </div>
 
       <form onSubmit={handleSubmit} style={styles.form}>
 
-        {/* PROGRAMA DE FORMACIÓN */}
+        {/* ── PROGRAMA DE FORMACIÓN ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Programa de Formación</h3>
 
@@ -453,12 +469,46 @@ const CrearOferta = ({ onOfertaCreada }) => {
             <Autocomplete
               opciones={programas}
               valorId={formData.programa_formacion}
-              onChange={(id) => setFormData({ ...formData, programa_formacion: id })}
+              onChange={handleProgramaChange}
               placeholder="Escribe nombre o código del programa..."
               displayFn={(p) => `${p.nombre_programa} - ${p.codigo}`}
               required
             />
           </div>
+
+          {/* Tarjeta de info del programa seleccionado */}
+          {programaSeleccionado && (
+            <div style={styles.programaInfoCard}>
+              <div style={styles.programaInfoGrid}>
+                <div style={styles.programaInfoItem}>
+                  <span style={styles.programaInfoLabel}>⏱ Duración total</span>
+                  <span style={styles.programaInfoValue}>
+                    {duracionPrograma
+                      ? `${duracionPrograma} horas`
+                      : <span style={{ color: '#f59e0b', fontSize: 13 }}>No registrada</span>
+                    }
+                  </span>
+                </div>
+                {programaSeleccionado.hora_inicio && (
+                  <div style={styles.programaInfoItem}>
+                    <span style={styles.programaInfoLabel}>🕐 Horario sugerido</span>
+                    <span style={styles.programaInfoValue}>
+                      {programaSeleccionado.hora_inicio} – {programaSeleccionado.hora_fin}
+                    </span>
+                  </div>
+                )}
+                <div style={styles.programaInfoItem}>
+                  <span style={styles.programaInfoLabel}>📌 Código</span>
+                  <span style={styles.programaInfoValue}>{programaSeleccionado.codigo}</span>
+                </div>
+              </div>
+              {!duracionPrograma && (
+                <div style={styles.programaInfoWarning}>
+                  ⚠️ Este programa no tiene duración registrada. La fecha fin no se calculará automáticamente.
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={styles.formGroup}>
             <label style={styles.label}>Modalidad:</label>
@@ -477,7 +527,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
           </div>
         </div>
 
-        {/* CUPOS */}
+        {/* ── CUPOS ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Cupos</h3>
           <div style={styles.formGroup}>
@@ -486,7 +536,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
           </div>
         </div>
 
-        {/* AMBIENTE */}
+        {/* ── AMBIENTE ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Modelo de Ambiente</h3>
           <div style={styles.formGroup}>
@@ -495,30 +545,85 @@ const CrearOferta = ({ onOfertaCreada }) => {
           </div>
         </div>
 
-        {/* FECHAS */}
+        {/* ── HORARIO (solo regular) — va ANTES de fechas para que los días alimenten el cálculo ── */}
+        {modo === 'regular' && (
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>Horario</h3>
+            <HorarioPicker
+              horario={formData.horario}
+              fechaInicio={formData.fechas.inicio}
+              fechaFin={formData.fechas.fin}
+              duracionHoras={duracionPrograma}
+              onChange={(nuevoHorario) => setFormData(prev => ({ ...prev, horario: nuevoHorario }))}
+            />
+          </div>
+        )}
+
+        {/* ── FECHAS ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Fechas</h3>
+
           <div style={styles.row}>
             <div style={styles.half}>
               <label style={styles.label}>Fecha Inicio:</label>
-              <input type="date" name="fechas.inicio" value={formData.fechas.inicio} onChange={handleChange} style={styles.input} required />
+              <input
+                type="date"
+                name="fechas.inicio"
+                value={formData.fechas.inicio}
+                onChange={handleChange}
+                style={styles.input}
+                required
+              />
             </div>
             <div style={styles.half}>
               <label style={styles.label}>Fecha Fin:</label>
-              <input type="date" name="fechas.fin" value={formData.fechas.fin} onChange={handleChange} style={styles.input} required />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="date"
+                  name="fechas.fin"
+                  value={formData.fechas.fin}
+                  onChange={handleChange}
+                  style={{
+                    ...styles.input,
+                    ...(formData.fechas.fin && modo === 'regular' && duracionPrograma
+                      ? styles.inputCalculado
+                      : {})
+                  }}
+                  required
+                />
+                {formData.fechas.fin && modo === 'regular' && duracionPrograma && (
+                  <span style={styles.badgeCalculado}>✦ calculada</span>
+                )}
+              </div>
+              {modo === 'regular' && duracionPrograma && !formData.fechas.fin && formData.fechas.inicio && formData.horario.dias.length === 0 && (
+                <small style={styles.fechaHint}>Selecciona días en el horario para calcular la fecha fin</small>
+              )}
+              {modo === 'regular' && duracionPrograma && !formData.fechas.fin && formData.fechas.inicio && formData.horario.dias.length > 0 && (
+                <small style={{ ...styles.fechaHint, color: '#f59e0b' }}>Calculando...</small>
+              )}
             </div>
           </div>
+
+          {/* Resumen de duración si está todo completo */}
+          {modo === 'regular' && formData.fechas.inicio && formData.fechas.fin && duracionPrograma && (
+            <div style={styles.duracionResumen}>
+              <span>📅</span>
+              <span>
+                <strong>{duracionPrograma} horas</strong> distribuidas en{' '}
+                <strong>{formData.horario.dias.length} día(s)/semana</strong> —{' '}
+                {formData.horario.hora_inicio} a {formData.horario.hora_fin}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* UBICACIÓN */}
+        {/* ── UBICACIÓN ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Ubicación</h3>
-
           <div style={styles.formGroup}>
             <label style={styles.label}>Departamento:</label>
             <input type="text" name="ubicacion.departamento" value={formData.ubicacion.departamento} onChange={handleChange} style={styles.input} placeholder="Cauca" required />
           </div>
-
           <div style={styles.formGroup}>
             <label style={styles.label}>Municipio:</label>
             <Autocomplete
@@ -530,14 +635,13 @@ const CrearOferta = ({ onOfertaCreada }) => {
               required
             />
           </div>
-
           <div style={styles.formGroup}>
             <label style={styles.label}>Dirección:</label>
             <input type="text" name="ubicacion.direccion" value={formData.ubicacion.direccion} onChange={handleChange} style={styles.input} placeholder="Calle 123 #45-67, Barrio Centro" required />
           </div>
         </div>
 
-        {/* DATOS DEL INSTRUCTOR */}
+        {/* ── DATOS DEL INSTRUCTOR ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Datos del Instructor</h3>
           <div style={styles.row}>
@@ -562,7 +666,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
           </div>
         </div>
 
-        {/* EMPRESA SOLICITANTE */}
+        {/* ── EMPRESA SOLICITANTE ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Empresa Solicitante</h3>
 
@@ -582,7 +686,6 @@ const CrearOferta = ({ onOfertaCreada }) => {
           ) : (
             <div style={styles.subSection}>
               <h4 style={styles.subSectionTitle}>Nueva Empresa</h4>
-
               <div style={styles.formGroup}>
                 <label style={styles.label}>Nombre de la Empresa:</label>
                 <input type="text" name="nombre" value={nuevaEmpresa.nombre} onChange={handleNuevaEmpresaChange} style={styles.input} placeholder="Nombre de la empresa" />
@@ -670,7 +773,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
           )}
         </div>
 
-        {/* SUBSECTOR ECONÓMICO */}
+        {/* ── SUBSECTOR ECONÓMICO ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Subsector Económico</h3>
           <div style={styles.formGroup}>
@@ -679,7 +782,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
           </div>
         </div>
 
-        {/* PROGRAMA ESPECIAL */}
+        {/* ── PROGRAMA ESPECIAL ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Programa Especial</h3>
           <div style={styles.formGroup}>
@@ -690,7 +793,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
           </div>
         </div>
 
-        {/* CONVENIO */}
+        {/* ── CONVENIO ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Convenio</h3>
           <div style={styles.formGroup}>
@@ -699,31 +802,18 @@ const CrearOferta = ({ onOfertaCreada }) => {
           </div>
         </div>
 
-        {/* HORARIO */}
-        {modo === 'regular' && (
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Horario</h3>
-            <HorarioPicker
-              horario={formData.horario}
-              fechaInicio={formData.fechas.inicio}
-              fechaFin={formData.fechas.fin}
-              onChange={(nuevoHorario) => setFormData({ ...formData, horario: nuevoHorario })}
-            />
-          </div>
-        )}
-
-        {/* FORMULARIO CAMPESENA */}
+        {/* ── FORMULARIO CAMPESENA ── */}
         {modo === 'campesena' && (
           <FormularioCampesenaCompleto formData={formData} setFormData={setFormData} />
         )}
 
-        {/* ARCHIVOS PDF */}
+        {/* ── ARCHIVOS PDF ── */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Documentos Adjuntos</h3>
           <div style={styles.formGroup}>
             <label style={styles.label}>Firma Digital (PDF):</label>
             <div style={styles.fileInputGroup}>
-              <input type="file" id="firma_digital_pdf" name="firma_digital_pdf" onChange={handleFileChange} style={styles.fileInput} accept=".pdf" />
+              <input type="file" id="firma_digital_pdf" name="firma_digital_pdf" onChange={handleFileChange} style={styles.fileInput} accept=".png,.jpg,.jpeg" />
               {formData.firma_digital_pdf && (
                 <div style={styles.fileInfo}>
                   <span style={styles.fileName}>{formData.firma_digital_pdf.name}</span>
@@ -731,7 +821,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
                 </div>
               )}
             </div>
-            <small style={styles.fileHint}>Archivo PDF con la firma digital escaneada</small>
+            <small style={styles.fileHint}>Imagen PNG o JPG de la firma digital (no PDF)</small>
           </div>
 
           <div style={styles.formGroup}>
@@ -749,7 +839,11 @@ const CrearOferta = ({ onOfertaCreada }) => {
           </div>
         </div>
 
-        <button type="submit" style={loading ? { ...styles.submitButton, ...styles.buttonDisabled } : styles.submitButton} disabled={loading}>
+        <button
+          type="submit"
+          style={loading ? { ...styles.submitButton, ...styles.buttonDisabled } : styles.submitButton}
+          disabled={loading}
+        >
           {loading ? 'Guardando...' : 'Guardar Oferta'}
         </button>
       </form>
@@ -757,6 +851,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
   );
 };
 
+// ===== ESTILOS =====
 const styles = {
   container: {
     maxWidth: '860px',
@@ -792,10 +887,7 @@ const styles = {
     cursor: 'pointer',
     boxShadow: '0 10px 25px rgba(59, 130, 246, 0.18)'
   },
-  autocompleteWrapper: {
-    position: 'relative',
-    width: '100%'
-  },
+  autocompleteWrapper: { position: 'relative', width: '100%' },
   autocompleteInput: {
     padding: '14px 44px 14px 14px',
     border: '1px solid #cbd5e1',
@@ -839,10 +931,7 @@ const styles = {
     color: '#334155',
     borderBottom: '1px solid #eff2f7'
   },
-  autocompleteItemResaltado: {
-    backgroundColor: '#eff6ff',
-    color: '#1d4ed8'
-  },
+  autocompleteItemResaltado: { backgroundColor: '#eff6ff', color: '#1d4ed8' },
   autocompleteVacio: {
     position: 'absolute',
     top: '100%',
@@ -861,7 +950,7 @@ const styles = {
     backgroundColor: 'white',
     padding: '24px',
     borderRadius: '24px',
-    marginBottom: '24px',
+    marginBottom: '0',
     border: '1px solid #e2e8f0',
     boxShadow: '0 14px 30px rgba(15, 23, 42, 0.05)'
   },
@@ -881,12 +970,7 @@ const styles = {
     paddingBottom: '10px',
     letterSpacing: '0.01em'
   },
-  subSectionTitle: {
-    color: '#4338ca',
-    marginTop: 0,
-    marginBottom: '16px',
-    fontSize: '17px'
-  },
+  subSectionTitle: { color: '#4338ca', marginTop: 0, marginBottom: '16px', fontSize: '17px' },
   form: { display: 'flex', flexDirection: 'column', gap: '24px' },
   formGroup: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' },
   row: { display: 'flex', gap: '20px', marginBottom: '15px', flexWrap: 'wrap' },
@@ -899,7 +983,32 @@ const styles = {
     fontSize: '15px',
     outline: 'none',
     transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-    backgroundColor: 'white'
+    backgroundColor: 'white',
+    width: '100%',
+    boxSizing: 'border-box'
+  },
+  inputCalculado: {
+    borderColor: '#10b981',
+    backgroundColor: '#f0fdf4',
+    boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.12)'
+  },
+  badgeCalculado: {
+    position: 'absolute',
+    right: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#059669',
+    background: '#d1fae5',
+    padding: '2px 8px',
+    borderRadius: '20px',
+    pointerEvents: 'none'
+  },
+  fechaHint: {
+    fontSize: '12px',
+    color: '#64748b',
+    marginTop: '4px'
   },
   select: {
     padding: '14px 16px',
@@ -910,13 +1019,103 @@ const styles = {
     cursor: 'pointer',
     transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
   },
-  checkboxGroup: { display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '12px 0' },
-  checkboxLabel: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' },
+  programaInfoCard: {
+    backgroundColor: '#f0f9ff',
+    border: '1px solid #bae6fd',
+    borderRadius: '16px',
+    padding: '16px 20px',
+    marginBottom: '16px'
+  },
+  programaInfoGrid: {
+    display: 'flex',
+    gap: '24px',
+    flexWrap: 'wrap'
+  },
+  programaInfoItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px'
+  },
+  programaInfoLabel: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#0369a1',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em'
+  },
+  programaInfoValue: {
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#0c4a6e'
+  },
+  programaInfoWarning: {
+    marginTop: '12px',
+    fontSize: '12px',
+    color: '#92400e',
+    background: '#fef3c7',
+    border: '1px solid #fde68a',
+    borderRadius: '10px',
+    padding: '8px 12px'
+  },
+  duracionResumen: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    background: '#f0fdf4',
+    border: '1px solid #86efac',
+    borderRadius: '12px',
+    padding: '12px 16px',
+    fontSize: '14px',
+    color: '#166534',
+    marginTop: '4px'
+  },
   buttonGroup: { display: 'flex', gap: '14px', marginTop: '22px', flexWrap: 'wrap' },
-  submitButton: { backgroundColor: '#1d4ed8', color: 'white', padding: '16px', border: 'none', borderRadius: '16px', fontSize: '16px', fontWeight: 700, cursor: 'pointer', marginTop: '10px', boxShadow: '0 16px 28px rgba(59, 130, 246, 0.2)' },
-  secondaryButton: { backgroundColor: '#f1f5f9', color: '#1e293b', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '16px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', marginTop: '5px', width: '100%' },
-  successButton: { flex: 1, backgroundColor: '#059669', color: 'white', padding: '14px', border: 'none', borderRadius: '16px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' },
-  cancelButton: { flex: 1, backgroundColor: '#ef4444', color: 'white', padding: '14px', border: 'none', borderRadius: '16px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' },
+  submitButton: {
+    backgroundColor: '#1d4ed8',
+    color: 'white',
+    padding: '16px',
+    border: 'none',
+    borderRadius: '16px',
+    fontSize: '16px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    marginTop: '10px',
+    boxShadow: '0 16px 28px rgba(59, 130, 246, 0.2)'
+  },
+  secondaryButton: {
+    backgroundColor: '#f1f5f9',
+    color: '#1e293b',
+    padding: '12px',
+    border: '1px solid #cbd5e1',
+    borderRadius: '16px',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    marginTop: '5px',
+    width: '100%'
+  },
+  successButton: {
+    flex: 1,
+    backgroundColor: '#059669',
+    color: 'white',
+    padding: '14px',
+    border: 'none',
+    borderRadius: '16px',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer'
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#ef4444',
+    color: 'white',
+    padding: '14px',
+    border: 'none',
+    borderRadius: '16px',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer'
+  },
   buttonDisabled: { backgroundColor: '#94a3b8', cursor: 'not-allowed' },
   fileInputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
   fileInfo: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', backgroundColor: '#eef2ff', borderRadius: '14px' },
