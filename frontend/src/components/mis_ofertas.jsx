@@ -200,7 +200,7 @@ const ModalDetalle = ({ oferta, onClose }) => {
           <div style={styles.infoGrid}>
             <ColorInfoItem label="Municipio"     value={oferta.ubicacion?.municipio?.nombre || 'N/A'}          palette="blue" />
             <ColorInfoItem label="Jornada"       value={oferta.horario?.dias?.join(', ') || 'N/A'}            palette="purple" />
-            <ColorInfoItem label="Horas totales" value={oferta.programa_formacion?.horas_totales ? `${oferta.programa_formacion.horas_totales} h` : 'N/A'} palette="green" />
+            <ColorInfoItem label="Horas totales" value={oferta.programa_formacion?.duracion_maxima ? `${oferta.programa_formacion.duracion_maxima} h` : 'N/A'} palette="green" />
             <ColorInfoItem label="Instructor"    value={oferta.coordinador_asignado?.nombre || 'Sin asignar'} palette="amber" />
           </div>
 

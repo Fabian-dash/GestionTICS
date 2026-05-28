@@ -30,11 +30,20 @@ const SolicitarOferta = () => {
   const [success, setSuccess]                       = useState('');
   const [inscritos, setInscritos]                   = useState([]);
   const [step, setStep]                             = useState(1);
+  const [misSolicitudes, setMisSolicitudes]         = useState([]);
 
   useEffect(() => {
     cargarOfertas();
     cargarCoordinador();
+    cargarMisSolicitudes();
   }, []);
+
+  const cargarMisSolicitudes = async () => {
+    try {
+      const r = await api.get('/solicitudes/mis-solicitudes');
+      setMisSolicitudes(r.data.data || []);
+    } catch { console.error('Error cargando mis solicitudes'); }
+  };
 
   const cargarOfertas = async () => {
     try {
@@ -77,9 +86,22 @@ const SolicitarOferta = () => {
       });
       setSuccess('Solicitud enviada exitosamente al coordinador');
       setTimeout(() => setSuccess(''), 5000);
+      // Recargar solicitudes después del envío exitoso
+      await cargarMisSolicitudes();
     } catch (err) {
       setError(err.response?.data?.message || 'Error al enviar la solicitud');
     } finally { setLoading(false); }
+  };
+
+  // ===== FUNCIÓN AUXILIAR: obtener estado de solicitud de una oferta =====
+  const getEstadoSolicitud = (ofertaId) => {
+    const solicitud = misSolicitudes.find(s => s.oferta_id?._id === ofertaId);
+    if (!solicitud) return null;
+    return {
+      estado: solicitud.estado,
+      fecha: solicitud.fecha_solicitud,
+      comentarios: solicitud.comentarios
+    };
   };
 
   const fmt = (d) => d ? new Date(d).toLocaleDateString('es-CO') : '—';
@@ -188,28 +210,63 @@ const SolicitarOferta = () => {
                   <FieldLabel>Programa de formación</FieldLabel>
                   <select onChange={handleOfertaChange} style={{ ...st.select, fontFamily: F }} defaultValue="">
                     <option value="" disabled>— Seleccione una oferta —</option>
-                    {ofertas.map(o => (
-                      <option key={o._id} value={o._id}>
-                        {o.programa_formacion?.nombre_programa} · {o.programa_formacion?.codigo}
-                      </option>
-                    ))}
+                    {ofertas.map(o => {
+                      const estadoSol = getEstadoSolicitud(o._id);
+                      const disabled = estadoSol?.estado === 'pendiente' || estadoSol?.estado === 'aprobada';
+                      return (
+                        <option key={o._id} value={o._id} disabled={disabled}>
+                          {o.programa_formacion?.nombre_programa} · {o.programa_formacion?.codigo}
+                          {estadoSol && estadoSol.estado === 'pendiente' ? ' (⏳ Pendiente)' : ''}
+                          {estadoSol && estadoSol.estado === 'aprobada' ? ' (✓ Aprobada)' : ''}
+                          {estadoSol && estadoSol.estado === 'rechazada' ? ' (✗ Rechazada)' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                   {ofertaSeleccionada && (
-                    <div style={st.detailBox}>
-                      {[
-                        ['Código',       ofertaSeleccionada.programa_formacion?.codigo],
-                        ['Programa',     ofertaSeleccionada.programa_formacion?.nombre_programa],
-                        ['Tipo',         ofertaSeleccionada.es_campesena ? 'Campesena' : 'Regular'],
-                        ['Tipo oferta',  ofertaSeleccionada.tipo_oferta?.nombre || 'N/A'],
-                        ['Estado',       ofertaSeleccionada.estado?.nombre || ofertaSeleccionada.estado?.codigo || 'Pendiente'],
-                        ['Fecha inicio', fmt(ofertaSeleccionada.fechas?.inicio)],
-                      ].map(([label, val]) => (
-                        <div key={label} style={st.detailRow}>
-                          <span style={st.detailLabel}>{label}</span>
-                          <span style={st.detailVal}>{val}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <>
+                      <div style={st.detailBox}>
+                        {[
+                          ['Código',       ofertaSeleccionada.programa_formacion?.codigo],
+                          ['Programa',     ofertaSeleccionada.programa_formacion?.nombre_programa],
+                          ['Tipo',         ofertaSeleccionada.es_campesena ? 'Campesena' : 'Regular'],
+                          ['Tipo oferta',  ofertaSeleccionada.tipo_oferta?.nombre || 'N/A'],
+                          ['Estado',       ofertaSeleccionada.estado?.nombre || ofertaSeleccionada.estado?.codigo || 'Pendiente'],
+                          ['Fecha inicio', fmt(ofertaSeleccionada.fechas?.inicio)],
+                        ].map(([label, val]) => (
+                          <div key={label} style={st.detailRow}>
+                            <span style={st.detailLabel}>{label}</span>
+                            <span style={st.detailVal}>{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Mostrar estado de solicitud anterior si existe */}
+                      {(() => {
+                        const estadoSol = getEstadoSolicitud(ofertaSeleccionada._id);
+                        if (!estadoSol) return null;
+                        
+                        const bgColor = estadoSol.estado === 'rechazada' ? C.redBg : estadoSol.estado === 'aprobada' ? '#e8f7f0' : '#fdf3e3';
+                        const txtColor = estadoSol.estado === 'rechazada' ? C.redTxt : estadoSol.estado === 'aprobada' ? C.greenDark : '#7a4a0a';
+                        const ico = estadoSol.estado === 'rechazada' ? '✗' : estadoSol.estado === 'aprobada' ? '✓' : '⏳';
+                        
+                        return (
+                          <div style={{ ...st.statusBox, background: bgColor, borderColor: txtColor + '33' }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: txtColor }}>
+                              {ico} {estadoSol.estado.charAt(0).toUpperCase() + estadoSol.estado.slice(1)}
+                            </span>
+                            <span style={{ fontSize: 11, color: txtColor, opacity: 0.7, display: 'block', marginTop: 4 }}>
+                              {fmt(estadoSol.fecha)}
+                            </span>
+                            {estadoSol.comentarios && (
+                              <span style={{ fontSize: 11, color: txtColor, display: 'block', marginTop: 8, fontStyle: 'italic' }}>
+                                Comentarios: {estadoSol.comentarios}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </>
                   )}
                 </div>
 
@@ -485,6 +542,8 @@ const st = {
   detailRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid #dde2ea' },
   detailLabel: { fontSize: 12, color: '#8a93a6', fontWeight: 500 },
   detailVal:   { fontSize: 12, color: '#1c2435', fontWeight: 600, textAlign: 'right', maxWidth: '60%' },
+
+  statusBox: { marginTop: 12, borderRadius: 7, border: '1px solid', padding: '12px 14px', fontSize: 12 },
 
   coordCard: { display: 'flex', alignItems: 'center', gap: 12, background: '#f4f5f7', borderRadius: 8, padding: '12px 14px', marginBottom: 14 },
   coordBig: {

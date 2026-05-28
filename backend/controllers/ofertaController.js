@@ -232,8 +232,8 @@ const obtenerOfertas = async (req, res) => {
 
     res.json({
       success: true,
-      count: ofertasConDatos.length,
-      data: ofertasConDatos
+      count: ofertas.length,
+      data: ofertas
     });
   } catch (error) {
     console.error('❌ Error al obtener ofertas:', error.message);
@@ -333,6 +333,7 @@ const obtenerOfertaPorId = async (req, res) => {
 const obtenerMisOfertas = async (req, res) => {
   try {
     const usuario = req.usuario;
+    const Inscripcion = require('../models/Inscripcion');
     
     const ofertas = await CreacionOferta.find({ 
       creado_por: usuario._id 
@@ -349,13 +350,23 @@ const obtenerMisOfertas = async (req, res) => {
         select: 'nombre nit'
       })
       .populate('coordinador_asignado', 'nombre')
-      .select('+carta_pdf +firma_digital_pdf')  // ← ESTO ES CLAVE
+      .select('+carta_pdf +firma_digital_pdf')
       .sort({ createdAt: -1 });
+
+    // ===== AGREGAR CONTADOR DE INSCRITOS A CADA OFERTA =====
+    const ofertasConInscritos = await Promise.all(
+      ofertas.map(async (oferta) => {
+        const inscritos = await Inscripcion.countDocuments({ oferta_id: oferta._id });
+        const ofertaObj = oferta.toObject();
+        ofertaObj.inscritos_count = inscritos;
+        return ofertaObj;
+      })
+    );
 
     res.json({
       success: true,
-      count: ofertasConDatos.length,
-      data: ofertasConDatos
+      count: ofertasConInscritos.length,
+      data: ofertasConInscritos
     });
   } catch (error) {
     console.error('Error:', error);
