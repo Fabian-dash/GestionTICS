@@ -3,39 +3,44 @@ import api from '../services/api';
 
 // ── Configuración de estados ─────────────────────────────────────────────────
 const ESTADO_CONFIG = {
-  borrador:     {
+  borrador: {
     label: 'Borrador',
     descripcion: 'La oferta fue creada pero aún no ha sido enviada para revisión.',
     bg: '#F1EFE8', color: '#5F5E5A', dot: '#888780',
   },
-  pendiente:    {
-    label: 'Pendiente',
-    descripcion: 'La oferta fue enviada y está esperando aprobación de coordinación.',
+  pendiente: {
+    label: 'Pendiente coordinador',
+    descripcion: 'La oferta fue enviada y está esperando aprobación del coordinador.',
     bg: '#FAEEDA', color: '#7a4a0a', dot: '#EF9F27',
   },
-  rechazada:    {
+  rechazada: {
     label: 'Rechazada',
-    descripcion: 'La oferta fue revisada y no fue aprobada. Revisa las observaciones.',
+    descripcion: 'La oferta fue rechazada. Revisa las observaciones del coordinador o funcionario.',
     bg: '#FCEBEB', color: '#9b1f1f', dot: '#E24B4A',
   },
-  aprobada:     {
-    label: 'Aprobada',
-    descripcion: 'La oferta fue aprobada por coordinación y está lista para continuar.',
+  a_corregir: {
+    label: 'A corregir',
+    descripcion: 'El funcionario solicitó correcciones. Revisa el motivo y reenvía la oferta.',
+    bg: '#FCEBEB', color: '#9b1f1f', dot: '#E24B4A',
+  },
+  lista_espera: {
+    label: 'En lista de espera',
+    descripcion: 'El coordinador aprobó la oferta. Está esperando ser tomada por un funcionario.',
     bg: '#EAF3DE', color: '#2d5a0e', dot: '#639922',
   },
-  ficha_creada: {
-    label: 'Ficha creada',
-    descripcion: 'Se generó la ficha de caracterización del grupo. Pendiente de apertura.',
+  en_proceso: {
+    label: 'En proceso de creación',
+    descripcion: 'Un funcionario está revisando los datos e inscritos de la oferta.',
     bg: '#E6F1FB', color: '#154e8e', dot: '#378ADD',
   },
-  con_inscritos: {
-    label: 'Con inscritos',
-    descripcion: 'El programa tiene aprendices inscritos y está en proceso de formación.',
+  creada: {
+    label: 'Creada',
+    descripcion: 'El funcionario aprobó la oferta. La ficha y solicitud fueron generadas correctamente.',
     bg: '#EEEDFE', color: '#3C3489', dot: '#7F77DD',
   },
-  completada:   {
-    label: 'Completada',
-    descripcion: 'El programa de formación finalizó satisfactoriamente.',
+  matriculada: {
+    label: 'Matriculada',
+    descripcion: 'Los aprendices fueron matriculados formalmente en el programa.',
     bg: '#e8f5e9', color: '#2e7d32', dot: '#43a047',
   },
 };
@@ -69,7 +74,7 @@ const StatCard = ({ label, value, accent, borderColor }) => (
 
 const Badge = ({ estado }) => {
   const cfg = ESTADO_CONFIG[estado] || {
-    label: estado, bg: '#F1EFE8', color: '#5F5E5A', dot: '#888780',
+    label: estado || 'Desconocido', bg: '#F1EFE8', color: '#5F5E5A', dot: '#888780',
   };
   return (
     <span style={{ ...styles.badge, backgroundColor: cfg.bg, color: cfg.color }}>
@@ -117,17 +122,6 @@ const LeyendaEstados = ({ visible, onToggle }) => (
     )}
   </div>
 );
-
-// ── Paleta de header del modal por estado ────────────────────────────────────
-const ESTADO_HEADER = {
-  borrador:      { titleColor: '#ffffff', subColor: '#94a3b8' },
-  pendiente:     { titleColor: '#ffffff', subColor: '#94a3b8' },
-  rechazada:     { titleColor: '#ffffff', subColor: '#94a3b8' },
-  aprobada:      { titleColor: '#ffffff', subColor: '#94a3b8' },
-  ficha_creada:  { titleColor: '#ffffff', subColor: '#94a3b8' },
-  con_inscritos: { titleColor: '#ffffff', subColor: '#94a3b8' },
-  completada:    { titleColor: '#ffffff', subColor: '#94a3b8' },
-};
 
 const INFO_COLORS = {
   blue:   { bg: '#e6f1fb', label: '#185FA5', value: '#0C3D72', border: '#B8D5F2' },
@@ -227,7 +221,7 @@ const ModalDetalle = ({ oferta, onClose }) => {
             </div>
           </div>
 
-          {estadoCfg && (
+          {estadoCfg ? (
             <>
               <p style={styles.sectionTitle}>Estado actual</p>
               <div style={{
@@ -241,6 +235,13 @@ const ModalDetalle = ({ oferta, onClose }) => {
                   <p style={{ margin: 0, fontWeight: 700, fontSize: 12, color: estadoCfg.color }}>{estadoCfg.label}</p>
                 </div>
                 <p style={{ margin: 0, fontSize: 12, color: '#555', lineHeight: 1.5 }}>{estadoCfg.descripcion}</p>
+              </div>
+            </>
+          ) : oferta.estado?.codigo && (
+            <>
+              <p style={styles.sectionTitle}>Estado actual</p>
+              <div style={{ ...styles.estadoBox, backgroundColor: '#F1EFE8', borderLeft: '4px solid #888780' }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#5F5E5A' }}>Estado: {oferta.estado.codigo}</p>
               </div>
             </>
           )}
@@ -263,7 +264,7 @@ const ModalDetalle = ({ oferta, onClose }) => {
 };
 
 // ── Componente principal ─────────────────────────────────────────────────────
-const MisOfertas = () => {
+const MisOfertas = ({ onCorregir = () => {} }) => {
   const [ofertas, setOfertas]               = useState([]);
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState('');
@@ -293,9 +294,9 @@ const MisOfertas = () => {
   // Stats derivadas
   const stats = useMemo(() => ({
     total:       ofertas.length,
-    activas:     ofertas.filter(o => ['aprobada', 'ficha_creada', 'con_inscritos'].includes(o.estado?.codigo)).length,
+    activas:     ofertas.filter(o => ['lista_espera', 'en_proceso', 'creada', 'matriculada'].includes(o.estado?.codigo)).length,
     pendientes:  ofertas.filter(o => o.estado?.codigo === 'pendiente').length,
-    completadas: ofertas.filter(o => o.estado?.codigo === 'completada').length,
+    rechazadas:  ofertas.filter(o => o.estado?.codigo === 'rechazada').length,
     cuposLibres: ofertas.reduce((a, o) => a + Math.max(0, (o.cupo_maximo || 0) - (o.inscritos_count || 0)), 0),
     ocupacion:   (() => {
       const totalMax = ofertas.reduce((a, o) => a + (o.cupo_maximo || 0), 0);
@@ -387,10 +388,10 @@ const MisOfertas = () => {
 
       {/* Stats */}
       <div style={styles.statsRow}>
-        <StatCard label="Total ofertas" value={stats.total}       borderColor="#334155" />
-        <StatCard label="Activas"       value={stats.activas}     accent={SENA.green}   borderColor={SENA.green} />
-        <StatCard label="Pendientes"    value={stats.pendientes}  accent="#b45309"      borderColor="#e69519" />
-        <StatCard label="Completadas"   value={stats.completadas} accent={SENA.accent}  borderColor={SENA.accent} />
+        <StatCard label="Total ofertas" value={stats.total}      borderColor="#334155" />
+        <StatCard label="Activas"       value={stats.activas}    accent={SENA.green}  borderColor={SENA.green} />
+        <StatCard label="Pendientes"    value={stats.pendientes} accent="#b45309"     borderColor="#e69519" />
+        <StatCard label="Rechazadas"    value={stats.rechazadas} accent="#9b1f1f"     borderColor="#E24B4A" />
       </div>
 
       {/* Leyenda de estados */}
@@ -493,13 +494,28 @@ const MisOfertas = () => {
                   <td style={styles.td}>
                     <Badge estado={oferta.estado?.codigo} />
                   </td>
+                  {/* ── Columna de acción: Corregir o Ver detalle ── */}
                   <td style={styles.td}>
-                    <button
-                      style={styles.btnVer}
-                      onClick={() => setOfertaDetalle(oferta)}
-                    >
-                      Ver detalle
-                    </button>
+                    {oferta.estado?.codigo === 'a_corregir' ? (
+                      <button
+                        style={{
+                          ...styles.btnVer,
+                          background: '#FCEBEB',
+                          color: '#9b1f1f',
+                          borderColor: '#F09595',
+                        }}
+                        onClick={() => onCorregir(oferta)}
+                      >
+                        Corregir
+                      </button>
+                    ) : (
+                      <button
+                        style={styles.btnVer}
+                        onClick={() => setOfertaDetalle(oferta)}
+                      >
+                        Ver detalle
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -526,11 +542,9 @@ const styles = {
     fontFamily: "'Segoe UI', system-ui, sans-serif",
     color: '#0d1117',
   },
-
-  // ── Header oscuro SENA ──
   pageHeader: {
-    background: `linear-gradient(135deg, ${SENA.dark} 0%, ${SENA.dark2} 100%)`,
-    borderBottom: `3px solid ${SENA.green}`,
+    background: `linear-gradient(135deg, #1a2332 0%, #243044 100%)`,
+    borderBottom: `3px solid #2e7d32`,
     color: '#fff',
     padding: '20px 24px 18px',
     display: 'flex',
@@ -552,8 +566,6 @@ const styles = {
   metric:       { textAlign: 'center' },
   metricValue:  { fontSize: 22, fontWeight: 700, color: SENA.greenLight, lineHeight: 1 },
   metricLabel:  { fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 3 },
-
-  // ── Stats ──
   statsRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
@@ -568,8 +580,6 @@ const styles = {
   },
   statLabel: { margin: '0 0 4px', fontSize: 11, color: '#5a6270' },
   statValue: { margin: 0, fontSize: 26, fontWeight: 600, lineHeight: 1 },
-
-  // ── Leyenda ──
   leyendaWrap: {
     marginBottom: '1rem',
     border: '1px solid #e4e7ec',
@@ -598,15 +608,8 @@ const styles = {
     backgroundColor: '#e4e7ec',
     borderTop: '1px solid #e4e7ec',
   },
-  leyendaItem: {
-    backgroundColor: '#fff',
-    padding: '12px 16px',
-  },
-  leyendaDesc: {
-    margin: 0, fontSize: 11, color: '#9aa0ab', lineHeight: 1.5,
-  },
-
-  // ── Tabla ──
+  leyendaItem: { backgroundColor: '#fff', padding: '12px 16px' },
+  leyendaDesc: { margin: 0, fontSize: 11, color: '#9aa0ab', lineHeight: 1.5 },
   tableWrap: {
     border: '1px solid #e4e7ec',
     borderRadius: 10,
@@ -634,278 +637,131 @@ const styles = {
     gap: 6,
   },
   searchInput: {
-    flex: 1,
-    border: 'none',
-    outline: 'none',
-    fontSize: 13,
-    padding: '7px 0',
-    backgroundColor: 'transparent',
-    color: '#0d1117',
+    flex: 1, border: 'none', outline: 'none',
+    fontSize: 13, padding: '7px 0',
+    backgroundColor: 'transparent', color: '#0d1117',
   },
   select: {
-    fontSize: 12,
-    padding: '7px 10px',
-    border: '1px solid #e4e7ec',
-    borderRadius: 7,
-    backgroundColor: '#fff',
-    color: '#0d1117',
-    cursor: 'pointer',
+    fontSize: 12, padding: '7px 10px',
+    border: '1px solid #e4e7ec', borderRadius: 7,
+    backgroundColor: '#fff', color: '#0d1117', cursor: 'pointer',
   },
   countBadge: {
-    fontSize: 11,
-    color: '#9aa0ab',
-    whiteSpace: 'nowrap',
-    background: '#f7f8fa',
-    border: '1px solid #e4e7ec',
-    padding: '4px 10px',
-    borderRadius: 20,
+    fontSize: 11, color: '#9aa0ab', whiteSpace: 'nowrap',
+    background: '#f7f8fa', border: '1px solid #e4e7ec',
+    padding: '4px 10px', borderRadius: 20,
   },
   tableScroll: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' },
   th: {
-    padding: '9px 12px',
-    textAlign: 'left',
-    fontSize: 10,
-    fontWeight: 700,
-    color: '#5a6270',
-    borderBottom: '1px solid #e4e7ec',
-    userSelect: 'none',
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
+    padding: '9px 12px', textAlign: 'left',
+    fontSize: 10, fontWeight: 700, color: '#5a6270',
+    borderBottom: '1px solid #e4e7ec', userSelect: 'none',
+    textTransform: 'uppercase', letterSpacing: '0.06em',
   },
   td: {
-    padding: '10px 12px',
-    fontSize: 12,
-    borderBottom: '1px solid #f0f2f5',
-    verticalAlign: 'middle',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    color: '#0d1117',
+    padding: '10px 12px', fontSize: 12,
+    borderBottom: '1px solid #f0f2f5', verticalAlign: 'middle',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0d1117',
   },
   row: { transition: 'background 0.1s' },
   sortIconInactive: { marginLeft: 4, opacity: 0.35, fontSize: 11 },
   sortIconActive:   { marginLeft: 4, color: SENA.green, fontSize: 11 },
-
-  // Badge
   badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    fontSize: 10,
-    fontWeight: 700,
-    padding: '3px 8px',
-    borderRadius: 20,
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
   },
   badgeDot: { width: 5, height: 5, borderRadius: '50%', flexShrink: 0 },
-
-  // Cupos
   cuposText: { fontSize: 11, display: 'block', marginBottom: 4, color: '#5a6270' },
-  barBg: {
-    height: 4,
-    borderRadius: 4,
-    backgroundColor: '#e9ecef',
-    overflow: 'hidden',
-  },
+  barBg: { height: 4, borderRadius: 4, backgroundColor: '#e9ecef', overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 4, transition: 'width 0.3s' },
-
-  // Tipo
   tipoCampesena: { fontSize: 11, fontWeight: 600, color: '#3C3489', backgroundColor: '#eeedfe', padding: '2px 8px', borderRadius: 12 },
   tipoRegular:   { fontSize: 11, color: '#9aa0ab' },
-
-  // Código
   code: {
-    fontSize: 10,
-    backgroundColor: '#f0f2f5',
-    padding: '2px 6px',
-    borderRadius: 4,
-    fontFamily: 'monospace',
-    color: '#444',
+    fontSize: 10, backgroundColor: '#f0f2f5',
+    padding: '2px 6px', borderRadius: 4, fontFamily: 'monospace', color: '#444',
   },
-
-  // Botón ver — verde SENA
   btnVer: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: SENA.green,
-    backgroundColor: SENA.greenBg,
+    fontSize: 11, fontWeight: 600,
+    color: SENA.green, backgroundColor: SENA.greenBg,
     border: `1px solid ${SENA.greenMid}`,
-    padding: '5px 12px',
-    borderRadius: 6,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
+    padding: '5px 12px', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
   },
-
-  // Error
   errorAlert: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FCEBEB',
-    color: '#9b1f1f',
-    padding: '10px 16px',
-    borderRadius: 8,
-    fontSize: 13,
-    marginBottom: '1rem',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#FCEBEB', color: '#9b1f1f',
+    padding: '10px 16px', borderRadius: 8, fontSize: 13, marginBottom: '1rem',
   },
   btnReintentar: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#9b1f1f',
-    backgroundColor: 'transparent',
-    border: '1px solid #9b1f1f',
-    padding: '4px 10px',
-    borderRadius: 6,
-    cursor: 'pointer',
+    fontSize: 12, fontWeight: 600, color: '#9b1f1f',
+    backgroundColor: 'transparent', border: '1px solid #9b1f1f',
+    padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
   },
-
-  // Loading
-  loadingWrap: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '60px 20px',
-    gap: 14,
-  },
+  loadingWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px', gap: 14 },
   spinner: {
-    width: 32,
-    height: 32,
-    border: '3px solid #e0e0e0',
-    borderTop: `3px solid ${SENA.green}`,
-    borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
+    width: 32, height: 32,
+    border: '3px solid #e0e0e0', borderTop: `3px solid ${SENA.green}`,
+    borderRadius: '50%', animation: 'spin 0.8s linear infinite',
   },
   loadingText: { fontSize: 14, color: '#888', margin: 0 },
-
-  // Empty
   emptyCell:    { padding: '40px 0', textAlign: 'center' },
   emptyContent: { display: 'inline-block', textAlign: 'center', color: '#5a6270' },
-
-  // ── Modal ──
   overlay: {
-    position: 'fixed',
-    inset: 0,
+    position: 'fixed', inset: 0,
     backgroundColor: 'rgba(10,16,26,0.52)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-    padding: 20,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 1000, padding: 20,
   },
   modal: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    border: '1px solid #e4e7ec',
-    width: '100%',
-    maxWidth: 560,
-    maxHeight: '90vh',
-    overflowY: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
+    backgroundColor: '#fff', borderRadius: 12,
+    border: '1px solid #e4e7ec', width: '100%', maxWidth: 560,
+    maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column',
   },
   modalHeader: {
-    background: `linear-gradient(135deg, ${SENA.dark} 0%, ${SENA.dark2} 100%)`,
-    borderBottom: `2px solid ${SENA.green}`,
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    padding: '18px 20px 14px',
-    gap: 12,
+    background: `linear-gradient(135deg, #1a2332 0%, #243044 100%)`,
+    borderBottom: `2px solid #2e7d32`,
+    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+    padding: '18px 20px 14px', gap: 12,
   },
   modalChip: {
-    display: 'inline-block',
-    fontSize: 9,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    color: SENA.greenLight,
-    backgroundColor: 'rgba(46,125,50,0.18)',
-    padding: '3px 9px',
-    borderRadius: 20,
-    border: 'rgba(46,125,50,0.3)',
-    marginBottom: 8,
+    display: 'inline-block', fontSize: 9, fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '0.08em',
+    color: SENA.greenLight, backgroundColor: 'rgba(46,125,50,0.18)',
+    padding: '3px 9px', borderRadius: 20, marginBottom: 8,
   },
-  modalTitle: {
-    margin: 0,
-    fontSize: 15,
-    fontWeight: 600,
-    color: '#fff',
-    lineHeight: 1.4,
-  },
+  modalTitle: { margin: 0, fontSize: 15, fontWeight: 600, color: '#fff', lineHeight: 1.4 },
   modalCode: {
-    fontFamily: 'monospace',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    color: '#94a3b8',
-    padding: '2px 8px',
-    borderRadius: 4,
-    fontSize: 11,
+    fontFamily: 'monospace', backgroundColor: 'rgba(255,255,255,0.12)',
+    color: '#94a3b8', padding: '2px 8px', borderRadius: 4, fontSize: 11,
   },
   btnClose: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: 18,
-    color: '#94a3b8',
-    lineHeight: 1,
-    padding: 4,
-    flexShrink: 0,
+    background: 'none', border: 'none', cursor: 'pointer',
+    fontSize: 18, color: '#94a3b8', lineHeight: 1, padding: 4, flexShrink: 0,
   },
   modalBody: { padding: '18px 20px', flex: 1 },
   sectionTitle: {
-    margin: '0 0 10px',
-    fontSize: 10,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    color: '#9aa0ab',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
+    margin: '0 0 10px', fontSize: 10, fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9aa0ab',
+    display: 'flex', alignItems: 'center', gap: 6,
   },
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 8,
-    marginBottom: 20,
-  },
-  cuposBox: {
-    borderRadius: 8,
-    padding: '14px 16px',
-    marginBottom: 20,
-  },
+  infoGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 },
+  cuposBox: { borderRadius: 8, padding: '14px 16px', marginBottom: 20 },
   estadoBox: {
-    borderRadius: 8,
-    padding: '12px 14px',
-    marginBottom: 20,
-    borderLeft: '4px solid',
-    borderRadius: '0 8px 8px 0',
+    borderRadius: '0 8px 8px 0', padding: '12px 14px', marginBottom: 20,
   },
   obsBox: {
-    fontSize: 13,
-    color: '#555',
-    lineHeight: 1.6,
-    backgroundColor: '#FFFBF0',
-    borderRadius: '0 8px 8px 0',
-    padding: '12px 14px',
-    border: '1px solid #FAE3B8',
-    borderLeft: '4px solid #EF9F27',
+    fontSize: 13, color: '#555', lineHeight: 1.6,
+    backgroundColor: '#FFFBF0', borderRadius: '0 8px 8px 0',
+    padding: '12px 14px', border: '1px solid #FAE3B8', borderLeft: '4px solid #EF9F27',
   },
   modalFooter: {
-    padding: '12px 20px',
-    borderTop: '1px solid #e4e7ec',
-    backgroundColor: '#f7f8fa',
-    display: 'flex',
-    justifyContent: 'flex-end',
+    padding: '12px 20px', borderTop: '1px solid #e4e7ec',
+    backgroundColor: '#f7f8fa', display: 'flex', justifyContent: 'flex-end',
   },
   btnCerrar: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#5a6270',
-    backgroundColor: '#fff',
-    border: '1px solid #e4e7ec',
-    padding: '6px 18px',
-    borderRadius: 6,
-    cursor: 'pointer',
+    fontSize: 12, fontWeight: 600, color: '#5a6270',
+    backgroundColor: '#fff', border: '1px solid #e4e7ec',
+    padding: '6px 18px', borderRadius: 6, cursor: 'pointer',
   },
 };
 

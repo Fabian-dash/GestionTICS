@@ -4,84 +4,77 @@ import api from '../services/api';
 /* ─── Constantes de estados ─── */
 const ESTADO = {
   PENDIENTE_COORDINADOR: 'pendiente_coordinador',
-  LISTA_ESPERA: 'lista_espera',
-  EN_PROCESO: 'en_proceso',
-  A_CORREGIR: 'a_corregir',
-  APROBADA: 'aprobada',
-  MATRICULADA: 'matriculada',
-  COMPLETADA: 'completado',
+  LISTA_ESPERA:          'lista_espera',
+  EN_PROCESO:            'en_proceso',
+  A_CORREGIR:            'a_corregir',
+  CREADA:                'creada',        // ← antes llamado "aprobada" por el funcionario
+  MATRICULADA:           'matriculada',
+  COMPLETADA:            'completado',
+  RECHAZADA:             'rechazada',
 };
 
 const ESTADO_CONFIG = {
   [ESTADO.PENDIENTE_COORDINADOR]: {
     label: 'Pendiente coordinador',
-    color: '#92400e',
-    bg: '#fef3c7',
-    border: '#fcd34d',
-    dot: '#f59e0b',
+    color: '#92400e', bg: '#fef3c7', border: '#fcd34d', dot: '#f59e0b',
   },
   [ESTADO.LISTA_ESPERA]: {
     label: 'Lista de espera',
-    color: '#374151',
-    bg: '#f3f4f6',
-    border: '#d1d5db',
-    dot: '#9ca3af',
+    color: '#374151', bg: '#f3f4f6', border: '#d1d5db', dot: '#9ca3af',
   },
   [ESTADO.EN_PROCESO]: {
     label: 'En proceso',
-    color: '#065f46',
-    bg: '#d1fae5',
-    border: '#6ee7b7',
-    dot: '#10b981',
+    color: '#065f46', bg: '#d1fae5', border: '#6ee7b7', dot: '#10b981',
   },
   [ESTADO.A_CORREGIR]: {
     label: 'A corregir',
-    color: '#7f1d1d',
-    bg: '#fee2e2',
-    border: '#fca5a5',
-    dot: '#ef4444',
+    color: '#7f1d1d', bg: '#fee2e2', border: '#fca5a5', dot: '#ef4444',
   },
-  [ESTADO.APROBADA]: {
-    label: 'Aprobada',
-    color: '#064e3b',
-    bg: '#d1fae5',
-    border: '#34d399',
-    dot: '#059669',
+  [ESTADO.CREADA]: {
+    label: 'Creada',
+    color: '#1e3a5f', bg: '#dbeafe', border: '#93c5fd', dot: '#3b82f6',
   },
   [ESTADO.MATRICULADA]: {
     label: 'Matriculada',
-    color: '#1e3a5f',
-    bg: '#dbeafe',
-    border: '#93c5fd',
-    dot: '#3b82f6',
+    color: '#4c1d95', bg: '#ede9fe', border: '#c4b5fd', dot: '#7c3aed',
   },
   [ESTADO.COMPLETADA]: {
     label: 'Completada',
-    color: '#14532d',
-    bg: '#bbf7d0',
-    border: '#4ade80',
-    dot: '#16a34a',
+    color: '#14532d', bg: '#bbf7d0', border: '#4ade80', dot: '#16a34a',
+  },
+  [ESTADO.RECHAZADA]: {
+    label: 'Rechazada',
+    color: '#7f1d1d', bg: '#fee2e2', border: '#fca5a5', dot: '#ef4444',
   },
 };
 
-/* ─── Tabs de filtro según acciones disponibles ─── */
+/* ─── Tabs de filtro ─── */
 const TABS = [
-  { id: 'disponibles', label: 'Disponibles', estados: [ESTADO.LISTA_ESPERA] },
-  { id: 'en_proceso', label: 'En proceso', estados: [ESTADO.EN_PROCESO] },
-  { id: 'a_corregir', label: 'A corregir', estados: [ESTADO.A_CORREGIR] },
-  { id: 'aprobadas', label: 'Aprobadas', estados: [ESTADO.APROBADA] },
+  { id: 'disponibles',  label: 'Disponibles',  estados: [ESTADO.LISTA_ESPERA] },
+  { id: 'en_proceso',   label: 'En proceso',   estados: [ESTADO.EN_PROCESO] },
+  { id: 'a_corregir',   label: 'A corregir',   estados: [ESTADO.A_CORREGIR] },
+  { id: 'creadas',      label: 'Creadas',      estados: [ESTADO.CREADA] },
   { id: 'matriculadas', label: 'Matriculadas', estados: [ESTADO.MATRICULADA] },
-  { id: 'completadas', label: 'Completadas', estados: [ESTADO.COMPLETADA] },
-  { id: 'todas', label: 'Todas', estados: null },
+  { id: 'completadas',  label: 'Completadas',  estados: [ESTADO.COMPLETADA] },
+  { id: 'todas',        label: 'Todas',        estados: null },
 ];
 
-/* ─── Helper ─── */
+/* ─── Flujo visual de estados (orden lógico) ─── */
+const FLUJO_ESTADOS = [
+  ESTADO.PENDIENTE_COORDINADOR,
+  ESTADO.LISTA_ESPERA,
+  ESTADO.EN_PROCESO,
+  ESTADO.A_CORREGIR,
+  ESTADO.CREADA,
+  ESTADO.MATRICULADA,
+  ESTADO.COMPLETADA,
+];
+
+/* ─── Helper fecha ─── */
 const fmt = (dateStr) => {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('es-CO', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    day: '2-digit', month: 'short', year: 'numeric',
   });
 };
 
@@ -89,24 +82,22 @@ const fmt = (dateStr) => {
    COMPONENTE PRINCIPAL
 ══════════════════════════════════════════════════════════ */
 const FuncionarioDashboard = () => {
-  const [ofertas, setOfertas] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [ofertas, setOfertas]             = useState([]);
+  const [loading, setLoading]             = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
-  const [descargando, setDescargando] = useState(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [tabActiva, setTabActiva] = useState('disponibles');
+  const [descargando, setDescargando]     = useState(null);
+  const [error, setError]                 = useState('');
+  const [success, setSuccess]             = useState('');
+  const [tabActiva, setTabActiva]         = useState('disponibles');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [modalCorreccion, setModalCorreccion] = useState(null);
+  const [modalCorreccion, setModalCorreccion]   = useState(null);
   const [motivoCorreccion, setMotivoCorreccion] = useState('');
-  const [modalMatricula, setModalMatricula] = useState(null);
+  const [modalMatricula, setModalMatricula]     = useState(null);
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user            = JSON.parse(localStorage.getItem('user') || '{}');
   const tipoFuncionario = user.tipo_funcionario || 'regular';
 
-  useEffect(() => {
-    cargarOfertas();
-  }, []);
+  useEffect(() => { cargarOfertas(); }, []);
 
   /* ─── API calls ─── */
   const cargarOfertas = async () => {
@@ -114,27 +105,34 @@ const FuncionarioDashboard = () => {
       setLoading(true);
       const res = await api.get(`/ofertas-funcionario/todas/${tipoFuncionario}`);
       setOfertas(res.data.data || []);
-    } catch (e) {
+    } catch {
       setError('Error al cargar las ofertas');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTomarOferta = async (ofertaId) => {
-    if (!window.confirm('¿Confirmas tomar esta oferta? Quedará asignada solo a ti.')) return;
+  /**
+   * REVISAR: lista_espera → en_proceso
+   * El funcionario confirma que va a revisar esta oferta.
+   */
+  const handleRevisarOferta = async (ofertaId) => {
+    if (!window.confirm('¿Confirmas que vas a revisar esta oferta? Pasará a "En proceso".')) return;
     try {
       setActionLoading(ofertaId);
-      await api.patch(`/funcionarios/tomar/${ofertaId}`);
-      flash('success', '¡Oferta tomada correctamente!');
+      await api.patch(`/funcionarios/revisar/${ofertaId}`);
+      flash('success', '¡Oferta en proceso de revisión!');
       cargarOfertas();
     } catch (e) {
-      flash('error', e.response?.data?.message || 'Error al tomar la oferta');
+      flash('error', e.response?.data?.message || 'Error al revisar la oferta');
     } finally {
       setActionLoading(null);
     }
   };
 
+  /**
+   * SOLICITAR CORRECCIÓN: en_proceso → a_corregir
+   */
   const handleSolicitarCorreccion = async () => {
     if (!motivoCorreccion.trim()) {
       flash('error', 'Debes indicar el motivo de la corrección');
@@ -156,20 +154,27 @@ const FuncionarioDashboard = () => {
     }
   };
 
-  const handleAprobar = async (ofertaId) => {
-    if (!window.confirm('¿Aprobar esta oferta? Se generarán la ficha y solicitud.')) return;
+  /**
+   * CREAR (APROBAR): en_proceso → creada
+   * Genera número de ficha y solicitud.
+   */
+  const handleCrear = async (ofertaId) => {
+    if (!window.confirm('¿Crear la oferta? Se generarán la ficha y la solicitud de formación.')) return;
     try {
       setActionLoading(ofertaId);
       await api.patch(`/funcionarios/aprobar/${ofertaId}`);
-      flash('success', '¡Oferta aprobada! Ficha y solicitud generadas.');
+      flash('success', '¡Oferta creada! Ficha y solicitud generadas.');
       cargarOfertas();
     } catch (e) {
-      flash('error', e.response?.data?.message || 'Error al aprobar la oferta');
+      flash('error', e.response?.data?.message || 'Error al crear la oferta');
     } finally {
       setActionLoading(null);
     }
   };
 
+  /**
+   * MATRICULAR: creada → matriculada
+   */
   const handleMatricular = async () => {
     if (!window.confirm('¿Confirmar matrícula de los aprendices en esta oferta?')) return;
     try {
@@ -185,6 +190,9 @@ const FuncionarioDashboard = () => {
     }
   };
 
+  /**
+   * COMPLETAR: matriculada → completado
+   */
   const handleCompletar = async (ofertaId) => {
     if (!window.confirm('¿Marcar como completada? Esta acción es definitiva.')) return;
     try {
@@ -203,16 +211,16 @@ const FuncionarioDashboard = () => {
     try {
       setDescargando(ofertaId);
       const res = await api.get(`/ofertas/${ofertaId}/exportar-excel`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const url  = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
-      link.href = url;
+      link.href  = url;
       const oferta = ofertas.find((o) => o._id === ofertaId);
       link.setAttribute('download', `oferta_${oferta?.programa_formacion?.codigo || ofertaId}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       flash('success', 'Excel descargado correctamente');
-    } catch (e) {
+    } catch {
       flash('error', 'Error al descargar el Excel');
     } finally {
       setDescargando(null);
@@ -232,7 +240,7 @@ const FuncionarioDashboard = () => {
   };
 
   /* ─── Filtro por tab ─── */
-  const tabConfig = TABS.find((t) => t.id === tabActiva);
+  const tabConfig       = TABS.find((t) => t.id === tabActiva);
   const ofertasFiltradas = tabConfig?.estados
     ? ofertas.filter((o) => tabConfig.estados.includes(o.estado?.codigo))
     : ofertas;
@@ -249,6 +257,7 @@ const FuncionarioDashboard = () => {
     <>
       <style>{globalStyles}</style>
       <div className="fd-root">
+
         {/* ── Sidebar ── */}
         <aside className={`fd-sidebar${sidebarCollapsed ? ' fd-sidebar--collapsed' : ''}`}>
           <div className="fd-sidebar__brand">
@@ -267,14 +276,14 @@ const FuncionarioDashboard = () => {
                 <span className="fd-sidebar__brand-sub">SENA Portal</span>
               </div>
             )}
-            <button className="fd-sidebar__toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
+            <button
+              className="fd-sidebar__toggle"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              aria-label="Colapsar menú"
+            >
               <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+                width="16" height="16" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" strokeWidth="2"
                 style={{ transform: sidebarCollapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }}
               >
                 <path d="M15 18l-6-6 6-6" />
@@ -284,7 +293,10 @@ const FuncionarioDashboard = () => {
 
           <nav className="fd-sidebar__nav">
             {!sidebarCollapsed && <span className="fd-nav-section">MENÚ</span>}
-            <button className="fd-nav-item fd-nav-item--active" title={sidebarCollapsed ? 'Ofertas' : ''}>
+            <button
+              className="fd-nav-item fd-nav-item--active"
+              title={sidebarCollapsed ? 'Ofertas' : ''}
+            >
               <IcoClipboard />
               {!sidebarCollapsed && <span>Ofertas</span>}
               {!sidebarCollapsed && <span className="fd-nav-dot" />}
@@ -313,6 +325,7 @@ const FuncionarioDashboard = () => {
 
         {/* ── Main ── */}
         <div className="fd-main">
+
           {/* Topbar */}
           <header className="fd-topbar">
             <div>
@@ -335,34 +348,24 @@ const FuncionarioDashboard = () => {
 
           {/* Flujo de estados visual */}
           <div className="fd-flujo-strip">
-            {[
-              ESTADO.PENDIENTE_COORDINADOR,
-              ESTADO.LISTA_ESPERA,
-              ESTADO.EN_PROCESO,
-              ESTADO.A_CORREGIR,
-              ESTADO.APROBADA,
-              ESTADO.MATRICULADA,
-              ESTADO.COMPLETADA,
-            ].map((cod, idx, arr) => {
-              const cfg = ESTADO_CONFIG[cod];
+            {FLUJO_ESTADOS.map((cod, idx, arr) => {
+              const cfg   = ESTADO_CONFIG[cod];
               const count = ofertas.filter((o) => o.estado?.codigo === cod).length;
               return (
                 <React.Fragment key={cod}>
                   <div className="fd-flujo-step">
-                    <div
-                      className="fd-flujo-dot"
-                      style={{ background: cfg.dot }}
-                    />
+                    <div className="fd-flujo-dot" style={{ background: cfg.dot }} />
                     <span className="fd-flujo-label">{cfg.label}</span>
                     {count > 0 && (
-                      <span className="fd-flujo-count" style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
+                      <span
+                        className="fd-flujo-count"
+                        style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}
+                      >
                         {count}
                       </span>
                     )}
                   </div>
-                  {idx < arr.length - 1 && (
-                    <div className="fd-flujo-arrow">›</div>
-                  )}
+                  {idx < arr.length - 1 && <div className="fd-flujo-arrow">›</div>}
                 </React.Fragment>
               );
             })}
@@ -429,9 +432,12 @@ const FuncionarioDashboard = () => {
                     descargando={descargando === oferta._id}
                     actionLoading={actionLoading === oferta._id}
                     onDescargar={descargarExcel}
-                    onTomar={handleTomarOferta}
-                    onSolicitarCorreccion={(o) => { setModalCorreccion(o); setMotivoCorreccion(''); }}
-                    onAprobar={handleAprobar}
+                    onRevisar={handleRevisarOferta}
+                    onSolicitarCorreccion={(o) => {
+                      setModalCorreccion(o);
+                      setMotivoCorreccion('');
+                    }}
+                    onCrear={handleCrear}
                     onMatricular={(o) => setModalMatricula(o)}
                     onCompletar={handleCompletar}
                   />
@@ -474,11 +480,9 @@ const FuncionarioDashboard = () => {
                 onClick={handleSolicitarCorreccion}
                 disabled={actionLoading === modalCorreccion._id}
               >
-                {actionLoading === modalCorreccion._id ? (
-                  <><span className="fd-btn-spinner" /> Enviando...</>
-                ) : (
-                  'Enviar solicitud'
-                )}
+                {actionLoading === modalCorreccion._id
+                  ? <><span className="fd-btn-spinner" /> Enviando...</>
+                  : 'Enviar solicitud'}
               </button>
             </div>
           </div>
@@ -518,11 +522,9 @@ const FuncionarioDashboard = () => {
                 onClick={handleMatricular}
                 disabled={actionLoading === modalMatricula._id}
               >
-                {actionLoading === modalMatricula._id ? (
-                  <><span className="fd-btn-spinner" /> Matriculando...</>
-                ) : (
-                  'Confirmar matrícula'
-                )}
+                {actionLoading === modalMatricula._id
+                  ? <><span className="fd-btn-spinner" /> Matriculando...</>
+                  : 'Confirmar matrícula'}
               </button>
             </div>
           </div>
@@ -533,38 +535,49 @@ const FuncionarioDashboard = () => {
 };
 
 /* ══════════════════════════════════════════════════════════
-   OFERTA CARD — muestra acciones según estado
+   OFERTA CARD
+   Flujo de botones:
+     lista_espera  → [Revisar oferta]            → en_proceso
+     en_proceso    → [Pedir corrección] [Crear]  → a_corregir | creada
+     a_corregir    → readonly (instructor corrige)
+     creada        → [Matricular aprendices]     → matriculada
+     matriculada   → [Marcar completada]         → completado
 ══════════════════════════════════════════════════════════ */
 const OfertaCard = ({
   oferta,
   descargando,
   actionLoading,
   onDescargar,
-  onTomar,
+  onRevisar,
   onSolicitarCorreccion,
-  onAprobar,
+  onCrear,
   onMatricular,
   onCompletar,
 }) => {
   const estadoCodigo = oferta.estado?.codigo;
   const cfg = ESTADO_CONFIG[estadoCodigo] || ESTADO_CONFIG[ESTADO.PENDIENTE_COORDINADOR];
 
-  const pct = oferta.cupo_maximo
-    ? Math.round(((oferta.cupo_maximo - (oferta.cupos_disponibles ?? 0)) / oferta.cupo_maximo) * 100)
-    : 0;
+  const ocupados = oferta.cupo_maximo - (oferta.cupos_disponibles ?? 0);
+  const pct      = oferta.cupo_maximo ? Math.round((ocupados / oferta.cupo_maximo) * 100) : 0;
 
-  /* Condiciones de visibilidad de acciones */
   const esMia = oferta.tomadaPorMi;
-  const disponibleParaTomar = estadoCodigo === ESTADO.LISTA_ESPERA && !oferta.funcionario_asignado;
-  const enProcesoMia = estadoCodigo === ESTADO.EN_PROCESO && esMia;
-  const puedoAprobar = estadoCodigo === ESTADO.EN_PROCESO && esMia;
-  const puedeMatricular = estadoCodigo === ESTADO.APROBADA && esMia;
-  const puedeCompletar = estadoCodigo === ESTADO.MATRICULADA && esMia;
   const ocupadaOtro = oferta.tomadaPorOtro;
+
+  // ── Condiciones de acción por estado ──
+  const puedeRevisar    = estadoCodigo === ESTADO.LISTA_ESPERA   && !oferta.funcionario_asignado;
+  const enProcesoMia    = estadoCodigo === ESTADO.EN_PROCESO     && esMia;
+  const puedeMatricular = estadoCodigo === ESTADO.CREADA         && esMia;
+  const puedeCompletar  = estadoCodigo === ESTADO.MATRICULADA    && esMia;
+  const esCompletada    = estadoCodigo === ESTADO.COMPLETADA;
+  const estaEnEspera    = estadoCodigo === ESTADO.LISTA_ESPERA   && oferta.funcionario_asignado && !esMia;
 
   return (
     <div
-      className={`fd-card${ocupadaOtro ? ' fd-card--ocupada' : ''}${estadoCodigo === ESTADO.COMPLETADA ? ' fd-card--completada' : ''}`}
+      className={[
+        'fd-card',
+        ocupadaOtro   ? 'fd-card--ocupada'    : '',
+        esCompletada  ? 'fd-card--completada' : '',
+      ].join(' ').trim()}
     >
       {/* Header */}
       <div className="fd-card__head">
@@ -572,13 +585,10 @@ const OfertaCard = ({
           <span className={`fd-tag fd-tag--${oferta.es_campesena ? 'campesena' : 'regular'}`}>
             {oferta.es_campesena ? '🌾 Campesena' : '🎓 Regular'}
           </span>
-          <span
-            className="fd-tag"
-            style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}
-          >
+          <span className="fd-tag" style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
             {cfg.label}
           </span>
-          {esMia && estadoCodigo !== ESTADO.COMPLETADA && (
+          {esMia && !esCompletada && (
             <span className="fd-tag fd-tag--mia">✓ Asignada a ti</span>
           )}
           {ocupadaOtro && <span className="fd-tag fd-tag--ocupada">🔒 Ocupada</span>}
@@ -590,8 +600,8 @@ const OfertaCard = ({
       <div className="fd-card__body">
         <h3 className="fd-card__title">{oferta.programa_formacion?.nombre_programa}</h3>
         <div className="fd-card__meta">
-          <MetaRow icon={<IcoUser />} label="Instructor" value={oferta.creado_por?.nombre} />
-          <MetaRow icon={<IcoBuild />} label="Empresa" value={oferta.empresa_solicitante?.nombre} />
+          <MetaRow icon={<IcoUser />}  label="Instructor" value={oferta.creado_por?.nombre} />
+          <MetaRow icon={<IcoBuild />} label="Empresa"    value={oferta.empresa_solicitante?.nombre} />
           <MetaRow
             icon={<IcoCal />}
             label="Período"
@@ -604,12 +614,21 @@ const OfertaCard = ({
               value={esMia ? '👤 Tú' : oferta.funcionario_asignado?.nombre}
             />
           )}
+
+          {/* Número de ficha — visible desde estado "creada" en adelante */}
+          {oferta.numero_ficha && [ESTADO.CREADA, ESTADO.MATRICULADA, ESTADO.COMPLETADA].includes(estadoCodigo) && (
+            <MetaRow icon={<IcoDoc />} label="N° Ficha" value={oferta.numero_ficha} />
+          )}
+
+          {/* Motivo corrección */}
           {oferta.motivo_correccion && estadoCodigo === ESTADO.A_CORREGIR && (
             <div className="fd-correccion-nota">
               <strong>Motivo de corrección:</strong> {oferta.motivo_correccion}
             </div>
           )}
-          {estadoCodigo === ESTADO.COMPLETADA && oferta.fecha_completado && (
+
+          {/* Fecha completado */}
+          {esCompletada && oferta.fecha_completado && (
             <MetaRow icon={<IcoCheck />} label="Completada el" value={fmt(oferta.fecha_completado)} />
           )}
         </div>
@@ -618,10 +637,7 @@ const OfertaCard = ({
         <div className="fd-cupos">
           <div className="fd-cupos__labels">
             <span>Cupos ocupados</span>
-            <span>
-              <strong>{oferta.cupo_maximo - (oferta.cupos_disponibles ?? 0)}</strong>
-              {' '}/ {oferta.cupo_maximo}
-            </span>
+            <span><strong>{ocupados}</strong> / {oferta.cupo_maximo}</span>
           </div>
           <div className="fd-cupos__track">
             <div className="fd-cupos__fill" style={{ width: `${pct}%` }} />
@@ -631,27 +647,32 @@ const OfertaCard = ({
 
       {/* Footer — Acciones */}
       <div className="fd-card__foot">
+
         {/* Siempre: Descargar Excel */}
         <button
           className={`fd-btn fd-btn--secondary fd-btn--sm${descargando ? ' fd-btn--loading' : ''}`}
           onClick={() => onDescargar(oferta._id)}
           disabled={descargando || !!actionLoading}
         >
-          {descargando ? <><span className="fd-btn-spinner" /> Descargando...</> : <><IcoDown /> Excel</>}
+          {descargando
+            ? <><span className="fd-btn-spinner" /> Descargando...</>
+            : <><IcoDown /> Excel</>}
         </button>
 
-        {/* Lista de espera → Tomar */}
-        {disponibleParaTomar && (
+        {/* ① LISTA DE ESPERA → Revisar oferta */}
+        {puedeRevisar && (
           <button
             className={`fd-btn fd-btn--primary${actionLoading ? ' fd-btn--loading' : ''}`}
-            onClick={() => onTomar(oferta._id)}
+            onClick={() => onRevisar(oferta._id)}
             disabled={!!actionLoading}
           >
-            {actionLoading ? <><span className="fd-btn-spinner" /> Procesando...</> : <><IcoTake /> Tomar oferta</>}
+            {actionLoading
+              ? <><span className="fd-btn-spinner" /> Procesando...</>
+              : <><IcoEye /> Revisar oferta</>}
           </button>
         )}
 
-        {/* En proceso (mía) → Solicitar corrección + Aprobar */}
+        {/* ② EN PROCESO (mía) → Pedir corrección + Crear */}
         {enProcesoMia && (
           <>
             <button
@@ -663,54 +684,60 @@ const OfertaCard = ({
             </button>
             <button
               className={`fd-btn fd-btn--success${actionLoading ? ' fd-btn--loading' : ''}`}
-              onClick={() => onAprobar(oferta._id)}
+              onClick={() => onCrear(oferta._id)}
               disabled={!!actionLoading}
             >
-              {actionLoading ? <><span className="fd-btn-spinner" /> Procesando...</> : <>✓ Aprobar oferta</>}
+              {actionLoading
+                ? <><span className="fd-btn-spinner" /> Procesando...</>
+                : <><IcoDoc /> Crear oferta</>}
             </button>
           </>
         )}
 
-        {/* Aprobada (mía) → Matricular */}
+        {/* ③ CREADA (mía) → Matricular aprendices */}
         {puedeMatricular && (
           <button
             className={`fd-btn fd-btn--primary${actionLoading ? ' fd-btn--loading' : ''}`}
             onClick={() => onMatricular(oferta)}
             disabled={!!actionLoading}
           >
-            {actionLoading ? <><span className="fd-btn-spinner" /> Procesando...</> : <><IcoUsers /> Matricular aprendices</>}
+            {actionLoading
+              ? <><span className="fd-btn-spinner" /> Procesando...</>
+              : <><IcoUsers /> Matricular aprendices</>}
           </button>
         )}
 
-        {/* Matriculada (mía) → Completar */}
+        {/* ④ MATRICULADA (mía) → Marcar completada */}
         {puedeCompletar && (
           <button
             className={`fd-btn fd-btn--success${actionLoading ? ' fd-btn--loading' : ''}`}
             onClick={() => onCompletar(oferta._id)}
             disabled={!!actionLoading}
           >
-            {actionLoading ? <><span className="fd-btn-spinner" /> Procesando...</> : <>✅ Marcar completada</>}
+            {actionLoading
+              ? <><span className="fd-btn-spinner" /> Procesando...</>
+              : <>✅ Marcar completada</>}
           </button>
         )}
 
-        {/* Ocupada por otro */}
+        {/* Informativos de solo-lectura */}
         {ocupadaOtro && (
           <div className="fd-notice fd-notice--warn">🔒 Asignada a otro funcionario</div>
         )}
-
-        {/* Completada */}
-        {estadoCodigo === ESTADO.COMPLETADA && (
+        {estaEnEspera && (
+          <div className="fd-notice fd-notice--info">👁️ En revisión por otro funcionario</div>
+        )}
+        {esCompletada && (
           <div className="fd-notice fd-notice--ok">✅ Proceso finalizado</div>
         )}
-
-        {/* Pendiente coordinador / A corregir — solo lectura */}
-        {(estadoCodigo === ESTADO.PENDIENTE_COORDINADOR ||
-          estadoCodigo === ESTADO.A_CORREGIR) && (
-          <div className="fd-notice fd-notice--info">
-            {estadoCodigo === ESTADO.PENDIENTE_COORDINADOR
-              ? '⏳ Esperando decisión del coordinador'
-              : '🔧 El instructor está corrigiendo los datos'}
-          </div>
+        {estadoCodigo === ESTADO.PENDIENTE_COORDINADOR && (
+          <div className="fd-notice fd-notice--info">⏳ Esperando decisión del coordinador</div>
+        )}
+        {estadoCodigo === ESTADO.A_CORREGIR && (
+          <div className="fd-notice fd-notice--info">🔧 El instructor está corrigiendo los datos</div>
+        )}
+        {estadoCodigo === ESTADO.RECHAZADA && (
+          <div className="fd-notice fd-notice--warn">❌ Oferta rechazada</div>
         )}
       </div>
     </div>
@@ -728,7 +755,7 @@ const MetaRow = ({ icon, label, value }) => (
   </div>
 );
 
-/* ─── Iconos ─── */
+/* ─── Iconos SVG ─── */
 const IcoClipboard = () => (
   <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
     <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -744,14 +771,24 @@ const IcoDown = () => (
     <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
   </svg>
 );
-const IcoTake = () => (
+const IcoEye = () => (
   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-    <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
   </svg>
 );
 const IcoEdit = () => (
   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
     <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+const IcoDoc = () => (
+  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+    <polyline points="10 9 9 9 8 9" />
   </svg>
 );
 const IcoUsers = () => (
@@ -865,7 +902,7 @@ const globalStyles = `
   .fd-flujo-count { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; border: 1px solid; }
   .fd-flujo-arrow { color: #cbd5e1; font-size: 14px; margin: 0 2px; }
 
-  /* ── Alert ── */
+  /* ── Alerts ── */
   .fd-alert-wrap { padding: 12px 28px 0; }
   .fd-alert { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; animation: slideDown .3s ease; }
   @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
@@ -875,7 +912,7 @@ const globalStyles = `
 
   /* ── Tabs ── */
   .fd-tabs-wrap { padding: 14px 28px 0; flex-shrink: 0; }
-  .fd-tabs { display: flex; gap: 4px; border-bottom: 2px solid #e8eaed; padding-bottom: 0; overflow-x: auto; }
+  .fd-tabs { display: flex; gap: 4px; border-bottom: 2px solid #e8eaed; overflow-x: auto; }
   .fd-tab { padding: 8px 14px; border: none; background: transparent; color: #64748b; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   .fd-tab:hover { color: #0a3d2e; }
   .fd-tab--active { color: #0a3d2e; border-bottom-color: #0a3d2e; font-weight: 600; }
@@ -901,9 +938,8 @@ const globalStyles = `
   /* ── Card ── */
   .fd-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; transition: box-shadow .2s, transform .2s; }
   .fd-card:hover { box-shadow: 0 8px 24px rgba(10,61,46,.09); transform: translateY(-2px); }
-  .fd-card--ocupada { opacity: .72; border-color: #fca5a5; }
+  .fd-card--ocupada    { opacity: .72; border-color: #fca5a5; }
   .fd-card--completada { border-color: #86efac; }
-
   .fd-card__head { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; background: #fafbfc; flex-wrap: wrap; gap: 6px; }
   .fd-card__tags { display: flex; gap: 5px; flex-wrap: wrap; }
   .fd-card__code { font-family: 'DM Mono', monospace; font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 2px 7px; border-radius: 4px; }
@@ -912,25 +948,19 @@ const globalStyles = `
   .fd-tag--campesena { background: #fef9c3; color: #854d0e; }
   .fd-tag--mia       { background: #dbeafe; color: #1e3a8a; }
   .fd-tag--ocupada   { background: #fee2e2; color: #991b1b; }
-
   .fd-card__body { padding: 14px 16px; }
   .fd-card__title { font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 12px; line-height: 1.45; }
   .fd-card__meta { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
-
   .fd-meta-row { display: flex; align-items: flex-start; gap: 7px; }
   .fd-meta-row__icon { color: #94a3b8; flex-shrink: 0; margin-top: 2px; }
   .fd-meta-row__label { display: block; font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; }
   .fd-meta-row__value { display: block; font-size: 12px; font-weight: 500; color: #334155; }
-
   .fd-correccion-nota { font-size: 12px; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 10px; margin-top: 4px; }
-
-  .fd-cupos { }
+  .fd-cupos { margin-top: 2px; }
   .fd-cupos__labels { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 5px; }
   .fd-cupos__track { height: 5px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
   .fd-cupos__fill { height: 100%; background: linear-gradient(90deg, #0a3d2e, #16a34a); border-radius: 99px; transition: width .6s ease; min-width: 3px; }
-
   .fd-card__foot { padding: 12px 16px; border-top: 1px solid #f1f5f9; background: #fafbfc; display: flex; flex-direction: column; gap: 7px; }
-
   .fd-notice { padding: 7px 11px; border-radius: 7px; font-size: 12px; font-weight: 500; text-align: center; }
   .fd-notice--warn { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
   .fd-notice--ok   { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }

@@ -3,11 +3,11 @@ const CreacionOferta = require('../models/CreacionOferta');
 const User = require('../models/User');
 const Coordinador = require('../models/Coordinador');
 const EstadoOferta = require('../models/EstadoOferta');
-const Inscripcion = require('../models/Inscripcion');  // ← ¿Está esta línea?
+const Inscripcion = require('../models/Inscripcion');
 const { cambiarEstado } = require('../services/estadoService');
 const fs = require('fs');
 const path = require('path');
-const ExcelJS = require('exceljs');  
+const ExcelJS = require('exceljs');
 
 
 // =============================================
@@ -70,29 +70,27 @@ const crearSolicitud = async (req, res) => {
     }
 
     // ===== CAMBIAR ESTADO DE LA OFERTA A "PENDIENTE" =====
-    const estadoPendiente = await EstadoOferta.findOne({ codigo: 'pendiente' });
+    const estadoPendiente = await EstadoOferta.findOne({ codigo: 'pendiente_coordinador' });
     if (!estadoPendiente) {
-      throw new Error('Estado "pendiente" no encontrado');
+      throw new Error('Estado "pendiente_coordinador" no encontrado. Ejecuta insertarEstados.js');
     }
 
-    // Actualizar estado de la oferta
     oferta.estado = estadoPendiente._id;
-    
-    // Agregar al historial
+
     if (!oferta.historial_estados) {
       oferta.historial_estados = [];
     }
-    
+
     oferta.historial_estados.push({
       estado: estadoPendiente._id,
-      comentario: mensaje || 'Enviada a revisión',
+      comentario: mensaje || 'Enviada a revisión del coordinador',
       cambiado_por: instructor._id,
       cambiado_por_modelo: 'User',
       fecha: new Date()
     });
 
     await oferta.save();
-    console.log('✅ Estado de oferta actualizado a pendiente');
+    console.log('✅ Estado de oferta actualizado a pendiente_coordinador');
 
     // Crear solicitud
     const nuevaSolicitud = new SolicitudValidacion({
@@ -121,6 +119,86 @@ const crearSolicitud = async (req, res) => {
   }
 };
 
+// =============================================
+// INSTRUCTOR: Reenviar oferta corregida al funcionario
+// Estado: a_corregir → en_proceso
+// No pasa por coordinador, va directo al funcionario
+// =============================================
+const reenviarOfertaCorregida = async (req, res) => {
+  try {
+    const { oferta_id, mensaje } = req.body;
+    const instructor = req.usuario;
+
+    // Verificar que la oferta existe y pertenece al instructor
+    const oferta = await CreacionOferta.findById(oferta_id).populate('estado');
+
+    if (!oferta) {
+      return res.status(404).json({
+        success: false,
+        message: 'Oferta no encontrada'
+      });
+    }
+
+    if (oferta.creado_por.toString() !== instructor._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes permiso para modificar esta oferta'
+      });
+    }
+
+    // Solo se puede reenviar si está en a_corregir
+    if (oferta.estado?.codigo !== 'a_corregir') {
+      return res.status(400).json({
+        success: false,
+        message: 'Solo puedes reenviar ofertas que están en estado "a corregir"'
+      });
+    }
+
+    // Verificar que tiene funcionario asignado
+    if (!oferta.funcionario_asignado) {
+      return res.status(400).json({
+        success: false,
+        message: 'Esta oferta no tiene un funcionario asignado'
+      });
+    }
+
+    const estadoEnProceso = await EstadoOferta.findOne({ codigo: 'en_proceso' });
+    if (!estadoEnProceso) {
+      throw new Error('Estado "en_proceso" no encontrado. Ejecuta insertarEstados.js');
+    }
+
+    oferta.estado = estadoEnProceso._id;
+    oferta.motivo_correccion = null; // Limpiar el motivo anterior
+
+    if (!oferta.historial_estados) oferta.historial_estados = [];
+    oferta.historial_estados.push({
+      estado: estadoEnProceso._id,
+      comentario: mensaje || 'Oferta corregida y reenviada al funcionario',
+      cambiado_por: instructor._id,
+      cambiado_por_modelo: 'User',
+      fecha: new Date()
+    });
+
+    await oferta.save();
+    console.log('✅ Oferta reenviada al funcionario en estado en_proceso');
+
+    res.json({
+      success: true,
+      message: 'Oferta corregida y enviada al funcionario',
+      data: {
+        oferta_id: oferta._id,
+        estado: 'en_proceso'
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en reenviarOfertaCorregida:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 
 
 // =============================================
@@ -131,19 +209,15 @@ const crearSolicitud = async (req, res) => {
 const descargarFicha = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const solicitud = await SolicitudValidacion.findById(id).populate('oferta_id');
     if (!solicitud) {
       return res.status(404).json({ message: 'Solicitud no encontrada' });
     }
 
-    if (!solicitud.oferta_id) {
-      return res.status(404).json({ message: 'Oferta asociada a la solicitud no encontrada' });
-    }
-
     const ofertaId = solicitud.oferta_id._id;
     const fichaPath = path.join(__dirname, '../uploads/fichas', `ficha-${ofertaId}.pdf`);
-    
+
     if (!fs.existsSync(fichaPath)) {
       return res.status(404).json({ message: 'Ficha no encontrada' });
     }
@@ -159,14 +233,10 @@ const descargarFicha = async (req, res) => {
 const descargarCarta = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const solicitud = await SolicitudValidacion.findById(id).populate('oferta_id');
     if (!solicitud) {
       return res.status(404).json({ message: 'Solicitud no encontrada' });
-    }
-
-    if (!solicitud.oferta_id) {
-      return res.status(404).json({ message: 'Oferta asociada a la solicitud no encontrada' });
     }
 
     const oferta = solicitud.oferta_id;
@@ -185,76 +255,60 @@ const descargarCarta = async (req, res) => {
   }
 };
 
-// Descargar Excel de inscritos
-// Descargar Excel de inscritos
-// Descargar Excel de inscritos (para el coordinador)
 // Descargar Excel de inscritos (para el coordinador)
 const descargarExcel = async (req, res) => {
   try {
     const { id } = req.params;
     console.log('📥 Solicitando Excel para solicitud:', id);
-    
+
     const solicitud = await SolicitudValidacion.findById(id).populate('oferta_id');
     if (!solicitud) {
       return res.status(404).json({ message: 'Solicitud no encontrada' });
     }
 
-    if (!solicitud.oferta_id) {
-      return res.status(404).json({ message: 'Oferta asociada a la solicitud no encontrada' });
-    }
-
     const ofertaId = solicitud.oferta_id._id;
-    
-    // Obtener la oferta con su programa
-    const oferta = await CreacionOferta.findById(ofertaId)
-      .populate('programa_formacion');
-    
+
+    const oferta = await CreacionOferta.findById(ofertaId).populate('programa_formacion');
     if (!oferta) {
       return res.status(404).json({ message: 'Oferta no encontrada' });
     }
 
-    // Obtener los inscritos de esta oferta
     const inscritos = await Inscripcion.find({ oferta_id: ofertaId })
       .populate('tipo_documento')
       .populate('caracterizacion');
 
-    // Crear Excel con el formato específico
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Inscritos');
 
-    // Definir las columnas exactamente como las necesita el coordinador
     worksheet.columns = [
-      { header: 'Resultado del Registro (Reservado para el sistema)', key: 'resultado', width: 40 },
-      { header: 'Tipo de Identificación', key: 'tipo_documento', width: 25 },
-      { header: 'Numero de Identificación', key: 'numero_documento', width: 25 },
-      { header: 'Código de la ficha', key: 'codigo_ficha', width: 20 },
-      { header: 'Tipo Población Aspirante', key: 'tipo_poblacion', width: 25 },
-      { header: 'Codigo Empresa (Solo si la ficha es cerrada)', key: 'codigo_empresa', width: 30 }
+      { header: 'Resultado del Registro (Reservado para el sistema)', key: 'resultado',      width: 40 },
+      { header: 'Tipo de Identificación',                             key: 'tipo_documento', width: 25 },
+      { header: 'Numero de Identificación',                           key: 'numero_documento', width: 25 },
+      { header: 'Código de la ficha',                                 key: 'codigo_ficha',   width: 20 },
+      { header: 'Tipo Población Aspirante',                           key: 'tipo_poblacion', width: 25 },
+      { header: 'Codigo Empresa (Solo si la ficha es cerrada)',       key: 'codigo_empresa', width: 30 }
     ];
 
-    // Estilo para el encabezado
     worksheet.getRow(1).font = { bold: true };
     worksheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF00643C' } // Verde SENA
+      fgColor: { argb: 'FF00643C' }
     };
     worksheet.getRow(1).font = { color: { argb: 'FFFFFFFF' }, bold: true };
 
-    // Agregar los datos de los inscritos
     if (inscritos && inscritos.length > 0) {
       inscritos.forEach(inscrito => {
         worksheet.addRow({
-          resultado: '', // Vacío, reservado para el sistema
+          resultado: '',
           tipo_documento: inscrito.tipo_documento?.nombre || '',
           numero_documento: inscrito.numero_documento || '',
           codigo_ficha: oferta?.programa_formacion?.codigo || '',
           tipo_poblacion: inscrito.caracterizacion?.tipo_caracterizacion || '',
-          codigo_empresa: '' // Vacío por ahora
+          codigo_empresa: ''
         });
       });
     } else {
-      // Si no hay inscritos, mostrar una fila con el código de la ficha
       worksheet.addRow({
         resultado: '',
         tipo_documento: '',
@@ -265,11 +319,9 @@ const descargarExcel = async (req, res) => {
       });
     }
 
-    // Configurar la respuesta
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=inscritos_${oferta.programa_formacion?.codigo || 'formato'}.xlsx`);
-    
-    // Escribir el libro a la respuesta
+
     await workbook.xlsx.write(res);
     res.end();
 
@@ -283,17 +335,16 @@ const descargarExcel = async (req, res) => {
 const descargarCedulas = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const solicitud = await SolicitudValidacion.findById(id).populate('oferta_id');
     if (!solicitud) {
       return res.status(404).json({ message: 'Solicitud no encontrada' });
     }
 
     const ofertaId = solicitud.oferta_id._id;
-    // Buscar el PDF fusionado más reciente
     const files = fs.readdirSync(path.join(__dirname, '../uploads/fusionados'));
     const cedulasFile = files.find(f => f.includes(ofertaId.toString()) && f.endsWith('.pdf'));
-    
+
     if (!cedulasFile) {
       return res.status(404).json({ message: 'PDF de cédulas no encontrado' });
     }
@@ -307,25 +358,6 @@ const descargarCedulas = async (req, res) => {
 };
 
 
-
-// =============================================
-// FUNCIONES DE LIMPIEZA
-// =============================================
-
-const limpiarSolicitudesHuérfanas = async () => {
-  const solicitudes = await SolicitudValidacion.find()
-    .populate('oferta_id', '_id');
-
-  const idsHuérfanos = solicitudes
-    .filter(solicitud => !solicitud.oferta_id)
-    .map(solicitud => solicitud._id);
-
-  if (idsHuérfanos.length > 0) {
-    await SolicitudValidacion.deleteMany({ _id: { $in: idsHuérfanos } });
-    console.log(`🧹 Eliminadas ${idsHuérfanos.length} solicitudes sin oferta asociada`);
-  }
-};
-
 // =============================================
 // FUNCIONES PARA COORDINADORES
 // =============================================
@@ -333,10 +365,8 @@ const limpiarSolicitudesHuérfanas = async () => {
 // Coordinador: Obtener solicitudes pendientes
 const getSolicitudesPendientes = async (req, res) => {
   try {
-    const coordinador = req.usuario;  // ✅ CAMBIADO
+    const coordinador = req.usuario;
     console.log('🔍 Coordinador logueado:', coordinador._id, coordinador.nombre);
-
-    await limpiarSolicitudesHuérfanas();
 
     const solicitudes = await SolicitudValidacion.find({
       coordinador_id: coordinador._id,
@@ -353,9 +383,6 @@ const getSolicitudesPendientes = async (req, res) => {
       .sort({ fecha_solicitud: -1 });
 
     console.log('📋 Solicitudes encontradas:', solicitudes.length);
-    solicitudes.forEach(s => {
-      console.log('   - Solicitud ID:', s._id, 'Oferta ID:', s.oferta_id?._id, 'Instructor:', s.instructor_id?.nombre);
-    });
 
     res.json({
       success: true,
@@ -373,27 +400,22 @@ const getSolicitudesPendientes = async (req, res) => {
 };
 
 
-// Coordinador: Aprobar solicitud
-// Coordinador: Aprobar solicitud
+// =============================================
+// ✅ COORDINADOR: Aprobar solicitud
+// La oferta pasa a "lista_espera" para que el funcionario la vea
+// =============================================
 const aprobarSolicitud = async (req, res) => {
   try {
     console.log('🔍 ===== INICIO APROBAR SOLICITUD =====');
     console.log('1. req.params:', JSON.stringify(req.params, null, 2));
     console.log('2. req.body:', JSON.stringify(req.body, null, 2));
-    console.log('3. req.usuario:', req.usuario ? {
-      id: req.usuario._id,
-      tipo: req.usuario.tipo || req.usuario.constructor?.modelName
-    } : 'NO HAY USUARIO');
 
     const { id } = req.params;
     const { comentarios } = req.body;
     const coordinador = req.usuario;
 
     if (!coordinador) {
-      return res.status(401).json({
-        success: false,
-        message: 'Usuario no autenticado'
-      });
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
     }
 
     // Buscar la solicitud
@@ -404,92 +426,57 @@ const aprobarSolicitud = async (req, res) => {
     }).populate('oferta_id');
 
     if (!solicitud) {
-      return res.status(404).json({
-        success: false,
-        message: 'Solicitud no encontrada'
-      });
-    }
-
-    if (!solicitud.oferta_id) {
-      return res.status(404).json({
-        success: false,
-        message: 'Oferta asociada a la solicitud no encontrada'
-      });
+      return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
     }
 
     console.log('4. Solicitud encontrada, oferta ID:', solicitud.oferta_id._id);
 
     // Buscar la oferta
     const oferta = await CreacionOferta.findById(solicitud.oferta_id._id);
-    
     if (!oferta) {
-      return res.status(404).json({
-        success: false,
-        message: 'Oferta no encontrada'
-      });
+      return res.status(404).json({ success: false, message: 'Oferta no encontrada' });
     }
 
-    // Buscar el estado 'aprobada'
-    const estadoAprobada = await EstadoOferta.findOne({ codigo: 'aprobada' });
-    
-    if (!estadoAprobada) {
-      throw new Error('El estado "aprobada" no existe en la base de datos');
+    // ✅ FIX: Buscar "lista_espera" en vez de "aprobada"
+    // Cuando el coordinador aprueba, la oferta va a lista_espera
+    // para que un funcionario la tome y revise
+    const estadoListaEspera = await EstadoOferta.findOne({ codigo: 'lista_espera' });
+    if (!estadoListaEspera) {
+      throw new Error('Estado "lista_espera" no encontrado. Ejecuta insertarEstados.js');
     }
 
-    console.log('5. Estado actual de la oferta:', oferta.estado);
+    console.log('5. Cambiando estado a lista_espera...');
 
-    // Cambiar el estado de la oferta - ACTUALIZACIÓN DIRECTA
-    console.log('6. Actualizando estado de oferta a aprobada...');
-    
-    // Guardar estado anterior
-    const estadoAnterior = oferta.estado;
-    
-    // Actualizar estado
-    oferta.estado = estadoAprobada._id;
-    
-    // Agregar al historial
-    if (!oferta.historial_estados) {
-      oferta.historial_estados = [];
-    }
-    
+    oferta.estado = estadoListaEspera._id;
+
+    if (!oferta.historial_estados) oferta.historial_estados = [];
     oferta.historial_estados.push({
-      estado: estadoAprobada._id,
-      comentario: comentarios || 'Aprobada por coordinador',
+      estado: estadoListaEspera._id,
+      comentario: comentarios || 'Aprobada por coordinador — en lista de espera para funcionario',
       cambiado_por: coordinador._id,
       cambiado_por_modelo: 'Coordinador',
       fecha: new Date()
     });
 
     await oferta.save();
-    console.log('7. ✅ Estado de oferta actualizado correctamente');
+    console.log('6. ✅ Estado de oferta actualizado a lista_espera');
 
     // Actualizar la solicitud
-    console.log('8. Actualizando solicitud...');
     solicitud.estado = 'aprobada';
     solicitud.comentarios = comentarios;
     solicitud.fecha_respuesta = new Date();
     await solicitud.save();
-    console.log('9. ✅ Solicitud actualizada correctamente');
-
-    // Determinar qué tipo de funcionario necesita
-    const tipoFuncionario = solicitud.oferta_id.es_campesena ? 'campesena' : 'regular';
-    console.log(`10. 📢 Notificar a funcionarios tipo: ${tipoFuncionario}`);
+    console.log('7. ✅ Solicitud marcada como aprobada');
 
     res.json({
       success: true,
-      message: 'Solicitud aprobada exitosamente',
+      message: 'Solicitud aprobada. La oferta está en lista de espera para el funcionario.',
       data: solicitud
     });
 
   } catch (error) {
-    console.error('❌ ERROR EN aprobarSolicitud:');
-    console.error('   - Mensaje:', error.message);
-    console.error('   - Stack:', error.stack);
-    
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    console.error('❌ ERROR EN aprobarSolicitud:', error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -498,7 +485,7 @@ const aprobarSolicitud = async (req, res) => {
 const getSolicitudById = async (req, res) => {
   try {
     const { id } = req.params;
-    const coordinador = req.usuario;  // ✅ CAMBIADO
+    const coordinador = req.usuario;
 
     const solicitud = await SolicitudValidacion.findOne({
       _id: id,
@@ -506,174 +493,62 @@ const getSolicitudById = async (req, res) => {
     })
       .populate({
         path: 'oferta_id',
-        populate: [
-          {
-            path: 'programa_formacion',
-            select: 'nombre_programa codigo nivel_formacion duracion_maxima duracion_etapa_lectiva duracion_etapa_productiva version tipo_programa red_conocimientos'
-          },
-          { path: 'modalidad', select: 'nombre' },
-          { path: 'tipo_oferta', select: 'nombre' },
-          { path: 'tipo_programa', select: 'nombre' },
-          { path: 'programa_especial', select: 'nombre' },
-          { path: 'ubicacion.municipio', select: 'nombre' },
-          { path: 'empresa_solicitante', select: 'nombre' },
-          { path: 'estado', select: 'codigo nombre' }
-        ]
+        populate: {
+          path: 'programa_formacion',
+          select: 'nombre_programa codigo'
+        }
       })
-      .populate('instructor_id', 'nombre apellido correoElectronico telefono numeroIdentificacion');
+      .populate('instructor_id', 'nombre apellido correoElectronico');
 
     if (!solicitud) {
-      return res.status(404).json({
-        success: false,
-        message: 'Solicitud no encontrada'
-      });
+      return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
     }
 
-    res.json({
-      success: true,
-      data: solicitud
-    });
+    res.json({ success: true, data: solicitud });
 
   } catch (error) {
     console.error('Error en getSolicitudById:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Coordinador: Eliminar solicitud
-const eliminarSolicitud = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const solicitud = await SolicitudValidacion.findById(id);
 
-    if (!solicitud) {
-      return res.status(404).json({
-        success: false,
-        message: 'Solicitud no encontrada'
-      });
-    }
-
-    await SolicitudValidacion.findByIdAndDelete(id);
-
-    res.json({
-      success: true,
-      message: 'Solicitud eliminada correctamente'
-    });
-  } catch (error) {
-    console.error('Error eliminando solicitud:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-// Coordinador: Rechazar solicitud
 // Coordinador: Rechazar solicitud
 const rechazarSolicitud = async (req, res) => {
   try {
     console.log('🔍 ===== INICIO RECHAZAR SOLICITUD =====');
-    console.log('1. req.params:', JSON.stringify(req.params, null, 2));
-    console.log('2. req.body:', JSON.stringify(req.body, null, 2));
-    console.log('3. req.usuario:', req.usuario ? {
-      id: req.usuario._id,
-      tipo: req.usuario.tipo || req.usuario.constructor?.modelName
-    } : 'NO HAY USUARIO');
 
     const { id } = req.params;
     const { comentarios } = req.body;
     const coordinador = req.usuario;
 
     if (!coordinador) {
-      console.log('❌ ERROR: No hay coordinador en req.usuario');
-      return res.status(401).json({
-        success: false,
-        message: 'Usuario no autenticado'
-      });
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
     }
 
-    console.log('4. Buscando solicitud con ID:', id);
-    console.log('5. Coordinador ID:', coordinador._id);
-
-    // Buscar la solicitud
     const solicitud = await SolicitudValidacion.findOne({
       _id: id,
       coordinador_id: coordinador._id,
       estado: 'pendiente'
     });
 
-    console.log('6. Resultado búsqueda solicitud:', solicitud ? 'ENCONTRADA' : 'NO ENCONTRADA');
-    
     if (!solicitud) {
-      return res.status(404).json({
-        success: false,
-        message: 'Solicitud no encontrada o ya fue procesada'
-      });
+      return res.status(404).json({ success: false, message: 'Solicitud no encontrada o ya fue procesada' });
     }
 
-    console.log('7. Solicitud encontrada:', {
-      id: solicitud._id,
-      estado: solicitud.estado,
-      oferta_id: solicitud.oferta_id,
-      instructor_id: solicitud.instructor_id
-    });
-
-    // Buscar la oferta
-    console.log('8. Buscando oferta con ID:', solicitud.oferta_id);
     const oferta = await CreacionOferta.findById(solicitud.oferta_id);
-    
-    console.log('9. Oferta encontrada:', oferta ? 'SÍ' : 'NO');
-    
     if (!oferta) {
-      return res.status(404).json({
-        success: false,
-        message: 'La oferta asociada no existe'
-      });
+      return res.status(404).json({ success: false, message: 'La oferta asociada no existe' });
     }
 
-    console.log('10. Oferta:', {
-      id: oferta._id,
-      estado: oferta.estado,
-      programa: oferta.programa_formacion
-    });
-
-    // Buscar el estado 'rechazada'
-    console.log('11. Buscando estado "rechazada" en EstadoOferta');
     const estadoRechazada = await EstadoOferta.findOne({ codigo: 'rechazada' });
-    
-    console.log('12. Estado rechazada:', estadoRechazada ? {
-      id: estadoRechazada._id,
-      codigo: estadoRechazada.codigo,
-      nombre: estadoRechazada.nombre
-    } : 'NO ENCONTRADO');
-
     if (!estadoRechazada) {
-      throw new Error('El estado "rechazada" no existe en la base de datos');
+      throw new Error('Estado "rechazada" no existe en la base de datos');
     }
 
-    // VERIFICAR QUE LA OFERTA NO ESTÉ YA RECHAZADA
-    const estadoActualOferta = await EstadoOferta.findById(oferta.estado);
-    console.log('13. Estado actual de la oferta:', estadoActualOferta?.codigo);
-
-   
-
-    // Cambiar el estado de la oferta - ACTUALIZACIÓN DIRECTA
-    console.log('14. Actualizando estado de oferta...');
-    
-    // Guardar estado anterior
-    const estadoAnterior = oferta.estado;
-    
-    // Actualizar estado
     oferta.estado = estadoRechazada._id;
-    
-    // Agregar al historial
-    if (!oferta.historial_estados) {
-      oferta.historial_estados = [];
-    }
-    
+
+    if (!oferta.historial_estados) oferta.historial_estados = [];
     oferta.historial_estados.push({
       estado: estadoRechazada._id,
       comentario: comentarios,
@@ -683,41 +558,26 @@ const rechazarSolicitud = async (req, res) => {
     });
 
     await oferta.save();
-    console.log('15. ✅ Estado de oferta actualizado correctamente');
 
-    // Actualizar la solicitud
-    console.log('16. Actualizando solicitud...');
     solicitud.estado = 'rechazada';
     solicitud.comentarios = comentarios;
     solicitud.fecha_respuesta = new Date();
     await solicitud.save();
-    console.log('17. ✅ Solicitud actualizada correctamente');
 
-    console.log('18. 🎉 PROCESO COMPLETADO EXITOSAMENTE');
-    
+    console.log('✅ Solicitud rechazada correctamente');
+
     res.json({
       success: true,
       message: 'Solicitud rechazada exitosamente',
       data: {
         solicitud,
-        oferta: {
-          id: oferta._id,
-          estado: oferta.estado
-        }
+        oferta: { id: oferta._id, estado: oferta.estado }
       }
     });
 
   } catch (error) {
-    console.error('❌ ERROR EN rechazarSolicitud:');
-    console.error('   - Nombre:', error.name);
-    console.error('   - Mensaje:', error.message);
-    console.error('   - Stack:', error.stack);
-    
-    res.status(500).json({
-      success: false,
-      message: error.message,
-      error: error.toString()
-    });
+    console.error('❌ ERROR EN rechazarSolicitud:', error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -726,67 +586,39 @@ const rechazarSolicitud = async (req, res) => {
 const verificarArchivosSolicitud = async (req, res) => {
   try {
     const { id } = req.params;
-    const fs = require('fs');
-    const path = require('path');
 
     const solicitud = await SolicitudValidacion.findById(id).populate('oferta_id');
-    
     if (!solicitud) {
-      return res.status(404).json({
-        success: false,
-        message: 'Solicitud no encontrada'
-      });
-    }
-
-    if (!solicitud.oferta_id) {
-      return res.status(404).json({
-        success: false,
-        message: 'Oferta asociada a la solicitud no encontrada'
-      });
+      return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
     }
 
     const oferta = solicitud.oferta_id;
-    const archivos = {
-      ficha: false,
-      carta: false,
-      excel: false,
-      cedulas: false
-    };
+    const archivos = { ficha: false, carta: false, excel: false, cedulas: false };
 
-    // Verificar Ficha de Caracterización
     const fichaPath = path.join(__dirname, '../uploads/fichas', `ficha-${oferta._id}.pdf`);
-    archivos.ficha = require('fs').existsSync(fichaPath);
+    archivos.ficha = fs.existsSync(fichaPath);
 
-    // Verificar Carta PDF
     if (oferta.carta_pdf) {
-      archivos.carta = require('fs').existsSync(oferta.carta_pdf);
+      archivos.carta = fs.existsSync(oferta.carta_pdf);
     }
 
-    // Verificar Excel de inscritos
-    const Inscripcion = require('../models/Inscripcion');
     const totalInscritos = await Inscripcion.countDocuments({ oferta_id: oferta._id });
     archivos.excel = totalInscritos > 0;
 
-    // Verificar PDF fusionado de cédulas
     const fecha = new Date().toISOString().split('T')[0];
     const pdfFusionadoPath = path.join(__dirname, '../uploads/fusionados', `cedulas_fusionadas_${oferta._id}_${fecha}.pdf`);
-    archivos.cedulas = require('fs').existsSync(pdfFusionadoPath);
+    archivos.cedulas = fs.existsSync(pdfFusionadoPath);
 
-    res.json({
-      success: true,
-      data: archivos
-    });
+    res.json({ success: true, data: archivos });
 
   } catch (error) {
     console.error('Error en verificarArchivosSolicitud:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// ===== NUEVA: Instructor - Obtener sus propias solicitudes =====
+
+// Instructor: Obtener sus propias solicitudes
 const getMisSolicitudes = async (req, res) => {
   try {
     const instructor = req.usuario;
@@ -797,11 +629,11 @@ const getMisSolicitudes = async (req, res) => {
     })
       .populate({
         path: 'oferta_id',
-        select: 'programa_formacion',
-        populate: {
-          path: 'programa_formacion',
-          select: 'nombre_programa codigo'
-        }
+        select: 'programa_formacion estado motivo_correccion',
+        populate: [
+          { path: 'programa_formacion', select: 'nombre_programa codigo' },
+          { path: 'estado', select: 'codigo nombre' }
+        ]
       })
       .populate('coordinador_id', 'nombre')
       .sort({ fecha_solicitud: -1 });
@@ -815,12 +647,10 @@ const getMisSolicitudes = async (req, res) => {
     });
   } catch (error) {
     console.error('Error en getMisSolicitudes:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // =============================================
 // EXPORTACIONES
@@ -829,15 +659,15 @@ module.exports = {
   // Instructor
   crearSolicitud,
   getMisSolicitudes,
-  
+  reenviarOfertaCorregida,   // ← nueva: a_corregir → en_proceso (sin coordinador)
+
   // Coordinador
   getSolicitudesPendientes,
   getSolicitudById,
-  eliminarSolicitud,
   rechazarSolicitud,
-  aprobarSolicitud,  // ← NUEVA
+  aprobarSolicitud,           // ← fix: ahora pone lista_espera en vez de aprobada
   verificarArchivosSolicitud,
-  
+
   // Descargas
   descargarFicha,
   descargarCarta,
