@@ -9,7 +9,8 @@ const MOCK_OFERTA = {
   empresa_solicitante: { nombre: 'AgroVerde' },
   cupo_maximo: 30,
   fechas: { inicio: '2026-04-01', fin: '2026-10-01' },
-  motivo_correccion: 'Faltan documentos de aprendices inscritos. Las columnas de número de documento y teléfono están incompletas en varios registros.',
+  motivo_correccion:
+    'Faltan documentos de aprendices inscritos. Las columnas de número de documento y teléfono están incompletas en varios registros.',
   funcionario_asignado: { nombre: 'Carlos Func.' },
   tiempo_solicitud: 'hace 2 horas',
 };
@@ -22,11 +23,25 @@ const MOCK_APRENDICES = [
   { _id: 'a5', nombre: 'Camila Torres', documento: '107654321', telefono: '3154567890', correo: 'cto@correo.com' },
 ];
 
-/* ══════════════════════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════════════════════ */
 const isCompleto = (a) =>
   a.nombre.trim() && a.documento.trim() && a.telefono.trim() && a.correo.trim();
+
+/* ── Ícono SVG inline reutilizable ── */
+const Icon = ({ d, size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d={d} />
+  </svg>
+);
+
+const ICONS = {
+  alert: 'M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z',
+  check: 'M20 6L9 17l-5-5',
+  send:  'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z',
+  x:     'M18 6L6 18M6 6l12 12',
+  info:  'M12 16v-4m0-4h.01M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z',
+  user:  'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z',
+  clock: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 6v6l4 2',
+};
 
 /* ══════════════════════════════════════════════════════════
    COMPONENTE PRINCIPAL
@@ -39,21 +54,18 @@ const CorregirOferta = ({
 }) => {
   const [aprendices, setAprendices] = useState(aprendicesIniciales);
   const [datosGenerales, setDatosGenerales] = useState({
-    programa: oferta.programa_formacion.nombre_programa,
-    codigo: oferta.programa_formacion.codigo,
-    empresa: oferta.empresa_solicitante.nombre,
-    cupo_maximo: oferta.cupo_maximo,
+    programa:     oferta.programa_formacion.nombre_programa,
+    codigo:       oferta.programa_formacion.codigo,
+    empresa:      oferta.empresa_solicitante.nombre,
+    cupo_maximo:  oferta.cupo_maximo,
     fecha_inicio: oferta.fechas.inicio,
-    fecha_fin: oferta.fechas.fin,
+    fecha_fin:    oferta.fechas.fin,
   });
 
   const incompletos = aprendices.filter((a) => !isCompleto(a));
 
-  const updateAprendiz = (id, field, value) => {
-    setAprendices((prev) =>
-      prev.map((a) => (a._id === id ? { ...a, [field]: value } : a))
-    );
-  };
+  const updateAprendiz = (id, field, value) =>
+    setAprendices((prev) => prev.map((a) => (a._id === id ? { ...a, [field]: value } : a)));
 
   const handleReenviar = () => {
     if (incompletos.length > 0) return;
@@ -65,237 +77,137 @@ const CorregirOferta = ({
       <style>{styles}</style>
       <div className="co-page">
 
-        {/* ── Topbar breadcrumb ── */}
-        <header className="co-topbar">
-          <div className="co-topbar__left">
-            <div className="co-topbar__logo">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <rect x="3" y="3" width="18" height="18" rx="4" />
-                <path d="M8 12h8M12 8v8" />
-              </svg>
+        {/* ── Breadcrumb ── */}
+        <div className="co-breadcrumb">
+          <span className="co-breadcrumb__item">Gestion y TICS</span>
+          <span className="co-breadcrumb__sep">/</span>
+          <span className="co-breadcrumb__item co-breadcrumb__item--active">Corregir oferta</span>
+        </div>
+
+        {/* ── Título ── */}
+        <div className="co-hero">
+          <h1 className="co-hero__title">Corregir oferta</h1>
+          <p className="co-hero__sub">
+            El funcionario detectó inconsistencias. Corrige los datos indicados y reenvía la oferta.
+          </p>
+        </div>
+
+        {/* ── Banner corrección ── */}
+        <div className="co-banner">
+          <div className="co-banner__left">
+            <span className="co-banner__icon">
+              <Icon d={ICONS.alert} size={15} />
+            </span>
+          </div>
+          <div className="co-banner__right">
+            <p className="co-banner__title">Corrección solicitada por el funcionario</p>
+            <p className="co-banner__quote">"{oferta.motivo_correccion}"</p>
+            <div className="co-banner__meta">
+              <span><Icon d={ICONS.user} size={11} /> {oferta.funcionario_asignado.nombre}</span>
+              <span className="co-banner__dot" />
+              <span><Icon d={ICONS.clock} size={11} /> {oferta.tiempo_solicitud}</span>
+              <span className="co-banner__dot" />
+              <span>{oferta.programa_formacion.nombre_programa} ({oferta.programa_formacion.codigo})</span>
             </div>
-            <nav className="co-breadcrumb">
-              <span>Mis ofertas</span>
-              <span className="co-breadcrumb__sep">/</span>
-              <span>Instructor</span>
-              <span className="co-breadcrumb__sep">/</span>
-              <span>Ofertas</span>
-              <span className="co-breadcrumb__sep">/</span>
-              <span className="co-breadcrumb__active">Producción agropecuaria</span>
-            </nav>
           </div>
-          <div className="co-topbar__user">
-            <span className="co-topbar__username">Juan Pérez</span>
-            <div className="co-topbar__avatar">JP</div>
+        </div>
+
+        {/* ── Datos generales ── */}
+        <div className="co-card">
+          <div className="co-card__head">
+            <span className="co-card__title">Datos generales de la oferta</span>
+            <span className="co-badge co-badge--warn">A corregir</span>
           </div>
-        </header>
-
-        <div className="co-body">
-
-          {/* ── Título ── */}
-          <div className="co-hero">
-            <h1 className="co-hero__title">Corregir oferta</h1>
-            <p className="co-hero__sub">
-              El funcionario detectó inconsistencias. Corrige los datos indicados y reenvía la oferta.
-            </p>
+          <div className="co-form-grid">
+            {[
+              { label: 'Programa de formación', key: 'programa',     type: 'text'   },
+              { label: 'Código',                key: 'codigo',       type: 'text'   },
+              { label: 'Empresa solicitante',   key: 'empresa',      type: 'text'   },
+              { label: 'Cupo máximo',           key: 'cupo_maximo',  type: 'number' },
+              { label: 'Fecha inicio',          key: 'fecha_inicio', type: 'date'   },
+              { label: 'Fecha fin',             key: 'fecha_fin',    type: 'date'   },
+            ].map(({ label, key, type }) => (
+              <div className="co-field" key={key}>
+                <label className="co-field__label">{label}</label>
+                <input
+                  className="co-field__input"
+                  type={type}
+                  value={datosGenerales[key]}
+                  onChange={(e) => setDatosGenerales({ ...datosGenerales, [key]: e.target.value })}
+                />
+              </div>
+            ))}
           </div>
+        </div>
 
-          {/* ── Banner corrección ── */}
-          <div className="co-banner">
-            <div className="co-banner__header">
-              <span className="co-banner__icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                </svg>
+        {/* ── Lista aprendices ── */}
+        <div className="co-card">
+          <div className="co-card__head">
+            <span className="co-card__title">Lista de aprendices inscritos</span>
+            {incompletos.length > 0 && (
+              <span className="co-badge co-badge--error">
+                {incompletos.length} registro{incompletos.length !== 1 ? 's' : ''} con datos incompletos
               </span>
-              <span className="co-banner__title">Corrección solicitada por el funcionario</span>
-            </div>
-            <div className="co-banner__quote">
-              "{oferta.motivo_correccion}"
-            </div>
-            <p className="co-banner__meta">
-              Solicitado por {oferta.funcionario_asignado.nombre} · {oferta.tiempo_solicitud} · Oferta: {oferta.programa_formacion.nombre_programa} ({oferta.programa_formacion.codigo})
-            </p>
+            )}
           </div>
 
-          {/* ── Datos generales ── */}
-          <div className="co-section">
-            <div className="co-section__head">
-              <span className="co-section__title">Datos generales de la oferta</span>
-              <span className="co-badge co-badge--warn">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                </svg>
-                A corregir
-              </span>
-            </div>
-
-            <div className="co-form-grid">
-              <div className="co-field">
-                <label className="co-field__label">PROGRAMA DE FORMACIÓN</label>
-                <input
-                  className="co-field__input"
-                  value={datosGenerales.programa}
-                  onChange={(e) => setDatosGenerales({ ...datosGenerales, programa: e.target.value })}
-                />
-              </div>
-              <div className="co-field">
-                <label className="co-field__label">CÓDIGO</label>
-                <input
-                  className="co-field__input"
-                  value={datosGenerales.codigo}
-                  onChange={(e) => setDatosGenerales({ ...datosGenerales, codigo: e.target.value })}
-                />
-              </div>
-              <div className="co-field">
-                <label className="co-field__label">EMPRESA SOLICITANTE</label>
-                <input
-                  className="co-field__input"
-                  value={datosGenerales.empresa}
-                  onChange={(e) => setDatosGenerales({ ...datosGenerales, empresa: e.target.value })}
-                />
-              </div>
-              <div className="co-field">
-                <label className="co-field__label">CUPO MÁXIMO</label>
-                <input
-                  className="co-field__input"
-                  type="number"
-                  value={datosGenerales.cupo_maximo}
-                  onChange={(e) => setDatosGenerales({ ...datosGenerales, cupo_maximo: e.target.value })}
-                />
-              </div>
-              <div className="co-field">
-                <label className="co-field__label">FECHA INICIO</label>
-                <input
-                  className="co-field__input"
-                  type="date"
-                  value={datosGenerales.fecha_inicio}
-                  onChange={(e) => setDatosGenerales({ ...datosGenerales, fecha_inicio: e.target.value })}
-                />
-              </div>
-              <div className="co-field">
-                <label className="co-field__label">FECHA FIN</label>
-                <input
-                  className="co-field__input"
-                  type="date"
-                  value={datosGenerales.fecha_fin}
-                  onChange={(e) => setDatosGenerales({ ...datosGenerales, fecha_fin: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Lista de aprendices ── */}
-          <div className="co-section">
-            <div className="co-section__head">
-              <span className="co-section__title">Lista de aprendices inscritos</span>
-              {incompletos.length > 0 && (
-                <span className="co-badge co-badge--error">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                  </svg>
-                  {incompletos.length} registro{incompletos.length !== 1 ? 's' : ''} con datos incompletos
-                </span>
-              )}
-            </div>
-
-            <div className="co-table-wrap">
-              <table className="co-table">
-                <thead>
-                  <tr>
-                    <th className="co-th" style={{ width: '22%' }}>NOMBRE<br />COMPLETO</th>
-                    <th className="co-th" style={{ width: '22%' }}>N°<br />DOCUMENTO</th>
-                    <th className="co-th" style={{ width: '22%' }}>TELÉFONO</th>
-                    <th className="co-th" style={{ width: '22%' }}>CORREO</th>
-                    <th className="co-th" style={{ width: '12%' }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {aprendices.map((a) => {
-                    const completo = isCompleto(a);
-                    return (
-                      <tr
-                        key={a._id}
-                        className={`co-tr${!completo ? ' co-tr--incomplete' : ''}`}
-                      >
-                        <td className="co-td">
+          <div className="co-table-wrap">
+            <table className="co-table">
+              <thead>
+                <tr>
+                  {['Nombre completo', 'N° Documento', 'Teléfono', 'Correo', ''].map((h, i) => (
+                    <th key={i} className="co-th">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {aprendices.map((a) => {
+                  const ok = isCompleto(a);
+                  return (
+                    <tr key={a._id} className={`co-tr${!ok ? ' co-tr--incomplete' : ''}`}>
+                      {(['nombre', 'documento', 'telefono', 'correo']).map((field) => (
+                        <td key={field} className="co-td">
                           <input
-                            className={`co-cell-input${!a.nombre.trim() ? ' co-cell-input--empty' : ''}`}
-                            value={a.nombre}
-                            placeholder="Ej: Juan García"
-                            onChange={(e) => updateAprendiz(a._id, 'nombre', e.target.value)}
+                            className={`co-cell-input${!a[field].trim() ? ' co-cell-input--error' : ''}`}
+                            value={a[field]}
+                            placeholder={field === 'correo' ? 'mail@correo.com' : field === 'nombre' ? 'Ej: Juan García' : field === 'documento' ? 'Ej: 1023456789' : 'Ej: 3101234567'}
+                            onChange={(e) => updateAprendiz(a._id, field, e.target.value)}
                           />
                         </td>
-                        <td className="co-td">
-                          <input
-                            className={`co-cell-input${!a.documento.trim() ? ' co-cell-input--empty' : ''}`}
-                            value={a.documento}
-                            placeholder="Ej: 1023456789"
-                            onChange={(e) => updateAprendiz(a._id, 'documento', e.target.value)}
-                          />
-                        </td>
-                        <td className="co-td">
-                          <input
-                            className={`co-cell-input${!a.telefono.trim() ? ' co-cell-input--empty' : ''}`}
-                            value={a.telefono}
-                            placeholder="Ej: 3101234567"
-                            onChange={(e) => updateAprendiz(a._id, 'telefono', e.target.value)}
-                          />
-                        </td>
-                        <td className="co-td">
-                          <input
-                            className={`co-cell-input${!a.correo.trim() ? ' co-cell-input--empty' : ''}`}
-                            value={a.correo}
-                            placeholder="Imail@correo.com"
-                            onChange={(e) => updateAprendiz(a._id, 'correo', e.target.value)}
-                          />
-                        </td>
-                        <td className="co-td co-td--status">
-                          {completo ? (
-                            <span className="co-status co-status--ok">OK</span>
-                          ) : (
-                            <span className="co-status co-status--error">Incompleto</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      ))}
+                      <td className="co-td co-td--center">
+                        {ok
+                          ? <span className="co-chip co-chip--ok"><Icon d={ICONS.check} size={10} /> OK</span>
+                          : <span className="co-chip co-chip--error"><Icon d={ICONS.x} size={10} /> Incompleto</span>
+                        }
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
+        </div>
 
-          {/* ── Footer acciones ── */}
-          <div className="co-footer">
-            <div className="co-footer__hint">
-              <span className="co-footer__check">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                </svg>
-              </span>
-              <span>
-                Completa los campos resaltados en rojo antes de reenviar
-              </span>
-            </div>
-            <div className="co-footer__actions">
-              <button className="co-btn co-btn--ghost" onClick={onCancelar}>
-                Cancelar
-              </button>
-              <button
-                className={`co-btn co-btn--primary${incompletos.length > 0 ? ' co-btn--disabled' : ''}`}
-                onClick={handleReenviar}
-                disabled={incompletos.length > 0}
-              >
-                <span className="co-footer__check">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                  </svg>
-                </span>
-                Corregir<br />y reenviar
-              </button>
-            </div>
+        {/* ── Footer ── */}
+        <div className="co-footer">
+          <div className="co-footer__hint">
+            <Icon d={ICONS.info} size={13} />
+            <span>Completa los campos en rojo antes de reenviar</span>
           </div>
-
+          <div className="co-footer__actions">
+            <button className="co-btn co-btn--ghost" onClick={onCancelar}>
+              Cancelar
+            </button>
+            <button
+              className="co-btn co-btn--primary"
+              onClick={handleReenviar}
+              disabled={incompletos.length > 0}
+            >
+              <Icon d={ICONS.send} size={12} />
+              Corregir y reenviar
+            </button>
+          </div>
         </div>
       </div>
     </>
@@ -303,286 +215,352 @@ const CorregirOferta = ({
 };
 
 /* ══════════════════════════════════════════════════════════
-   ESTILOS — mismo sistema de diseño del dashboard existente
+   ESTILOS — tema claro, armonizado con el portal SENA
+   Paleta: fondo #f4f6f9, cards #ffffff, bordes #e2e8f0,
+   acento verde #1a7a5e, texto principal #1e293b, subtexto #64748b
 ══════════════════════════════════════════════════════════ */
 const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   .co-page {
     min-height: 100vh;
-    background: #111827;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    color: #e2e8f0;
+    background: #f4f6f9;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    color: #1e293b;
+    padding: 28px 32px 52px;
     display: flex;
     flex-direction: column;
+    gap: 20px;
+    max-width: 980px;
   }
 
-  /* ── Topbar ── */
-  .co-topbar {
+  /* Breadcrumb */
+  .co-breadcrumb {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
-    height: 52px;
-    background: #1a2332;
-    border-bottom: 1px solid #2d3748;
-    flex-shrink: 0;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #94a3b8;
   }
-  .co-topbar__left { display: flex; align-items: center; gap: 12px; }
-  .co-topbar__logo {
-    width: 32px; height: 32px;
-    background: #0a3d2e;
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    color: #4ade80;
-    flex-shrink: 0;
+  .co-breadcrumb__sep { color: #cbd5e1; }
+  .co-breadcrumb__item--active { color: #64748b; }
+
+  /* Hero */
+  .co-hero__title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: #0f172a;
+    margin-bottom: 6px;
   }
-  .co-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
-  .co-breadcrumb__sep { color: #374151; }
-  .co-breadcrumb__active { color: #94a3b8; }
-  .co-topbar__user { display: flex; align-items: center; gap: 10px; }
-  .co-topbar__username { font-size: 13px; color: #94a3b8; }
-  .co-topbar__avatar {
-    width: 32px; height: 32px;
-    background: #0a3d2e;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 600; color: #4ade80;
+  .co-hero__sub {
+    font-size: 0.85rem;
+    color: #64748b;
+    line-height: 1.55;
   }
 
-  /* ── Body ── */
-  .co-body {
-    flex: 1;
-    padding: 24px 20px 32px;
-    max-width: 640px;
-    width: 100%;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  /* ── Hero ── */
-  .co-hero__title { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
-  .co-hero__sub { font-size: 13px; color: #94a3b8; line-height: 1.5; }
-
-  /* ── Banner corrección ── */
+  /* Banner */
   .co-banner {
-    background: #1e0a0a;
-    border: 1px solid #7f1d1d;
+    display: flex;
+    gap: 16px;
+    background: #fff5f5;
+    border: 1px solid #fecaca;
+    border-left: 3px solid #ef4444;
     border-radius: 12px;
-    padding: 14px 16px;
+    padding: 18px 20px;
   }
-  .co-banner__header {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 10px;
+  .co-banner__left {
+    flex-shrink: 0;
+    margin-top: 2px;
   }
   .co-banner__icon {
-    width: 20px; height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
     background: #fee2e2;
-    border: 1px solid #fca5a5;
-    border-radius: 4px;
-    display: flex; align-items: center; justify-content: center;
-    color: #dc2626;
-    flex-shrink: 0;
-  }
-  .co-banner__title { font-size: 13px; font-weight: 600; color: #fca5a5; }
-  .co-banner__quote {
-    font-size: 13px;
-    color: #e2e8f0;
-    background: #2d1212;
-    border: 1px solid #7f1d1d;
     border-radius: 8px;
-    padding: 10px 12px;
+    color: #ef4444;
+  }
+  .co-banner__title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #dc2626;
+    letter-spacing: 0.01em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .co-banner__quote {
+    font-size: 0.875rem;
+    color: #374151;
     line-height: 1.55;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
-  .co-banner__meta { font-size: 11px; color: #6b7280; line-height: 1.5; }
+  .co-banner__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: #94a3b8;
+  }
+  .co-banner__meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .co-banner__dot {
+    width: 3px;
+    height: 3px;
+    background: #cbd5e1;
+    border-radius: 50%;
+  }
 
-  /* ── Section card ── */
-  .co-section {
-    background: #1a2332;
-    border: 1px solid #2d3748;
-    border-radius: 12px;
+  /* Cards */
+  .co-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
-  .co-section__head {
+  .co-card__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px;
-    border-bottom: 1px solid #2d3748;
+    padding: 14px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    gap: 12px;
     flex-wrap: wrap;
-    gap: 8px;
+    background: #fafbfc;
   }
-  .co-section__title { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+  .co-card__title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1e293b;
+  }
 
-  /* ── Badges ── */
+  /* Badges */
   .co-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 11px; font-weight: 600;
-    padding: 3px 9px; border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
   }
   .co-badge--warn {
-    background: #1c1208; color: #fbbf24;
-    border: 1px solid #92400e;
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
   }
   .co-badge--error {
-    background: #1e0a0a; color: #fca5a5;
-    border: 1px solid #7f1d1d;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
   }
 
-  /* ── Form grid ── */
+  /* Form grid */
   .co-form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1px;
-    background: #2d3748;
-    border-top: none;
+    gap: 0;
   }
   .co-field {
-    background: #1a2332;
-    padding: 14px 16px;
+    padding: 16px 20px;
+    border-right: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
   }
+  .co-field:nth-child(even) { border-right: none; }
+  .co-field:nth-last-child(-n+2) { border-bottom: none; }
   .co-field__label {
     display: block;
-    font-size: 10px;
+    font-size: 0.68rem;
     font-weight: 600;
-    color: #6b7280;
-    letter-spacing: 0.06em;
+    color: #94a3b8;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
     margin-bottom: 7px;
   }
   .co-field__input {
     width: 100%;
-    background: #111827;
-    border: 1px solid #374151;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 9px 11px;
-    font-size: 13px;
-    color: #e2e8f0;
+    padding: 9px 13px;
+    font-size: 0.85rem;
+    color: #1e293b;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 0.15s, box-shadow 0.15s;
     font-family: inherit;
   }
-  .co-field__input:focus { border-color: #0a3d2e; }
-  .co-field__input[type="date"] { color-scheme: dark; }
+  .co-field__input:focus {
+    border-color: #1a7a5e;
+    box-shadow: 0 0 0 3px rgba(26,122,94,0.12);
+    background: #fff;
+  }
 
-  /* ── Table wrap ── */
+  /* Table */
   .co-table-wrap { overflow-x: auto; }
-  .co-table { width: 100%; border-collapse: collapse; min-width: 520px; }
-  .co-th {
-    padding: 10px 10px;
-    font-size: 10px; font-weight: 700;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    border-bottom: 1px solid #2d3748;
-    text-align: left;
-    line-height: 1.3;
-  }
-  .co-tr { transition: background 0.15s; }
-  .co-tr:not(:last-child) { border-bottom: 1px solid #2d3748; }
-  .co-tr--incomplete { background: #1e0a0a; }
-  .co-tr--incomplete:hover { background: #250e0e; }
-  .co-tr:not(.co-tr--incomplete):hover { background: #1e2a3a; }
-
-  .co-td {
-    padding: 8px 10px;
-    vertical-align: middle;
-  }
-  .co-td--status { text-align: center; }
-
-  .co-cell-input {
+  .co-table {
     width: 100%;
-    background: #111827;
-    border: 1px solid #374151;
-    border-radius: 7px;
-    padding: 7px 9px;
-    font-size: 12px;
-    color: #e2e8f0;
-    outline: none;
-    font-family: inherit;
-    transition: border-color 0.2s;
-    min-width: 0;
+    border-collapse: collapse;
+    min-width: 620px;
   }
-  .co-cell-input:focus { border-color: #0a3d2e; box-shadow: 0 0 0 2px rgba(10,61,46,0.25); }
-  .co-cell-input--empty {
-    border-color: #7f1d1d;
-    background: #1a0808;
+  .co-th {
+    padding: 11px 14px;
+    font-size: 0.68rem;
+    font-weight: 600;
     color: #94a3b8;
-  }
-  .co-cell-input--empty::placeholder { color: #6b3a3a; }
-
-  .co-status {
-    display: inline-block;
-    font-size: 10px; font-weight: 700;
-    padding: 3px 8px; border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    background: #fafbfc;
     white-space: nowrap;
   }
-  .co-status--ok    { color: #4ade80; }
-  .co-status--error {
-    background: #1e0a0a; color: #fca5a5;
-    border: 1px solid #7f1d1d;
-    border-radius: 4px;
-    padding: 2px 7px;
+  .co-tr {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.12s;
+  }
+  .co-tr:last-child { border-bottom: none; }
+  .co-tr:hover { background: #f8fafc; }
+  .co-tr--incomplete { background: #fff8f8; }
+  .co-tr--incomplete:hover { background: #fff1f1; }
+  .co-td {
+    padding: 9px 10px;
+    vertical-align: middle;
+  }
+  .co-td--center { text-align: center; }
+  .co-cell-input {
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 0.8rem;
+    color: #1e293b;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+  }
+  .co-cell-input::placeholder { color: #cbd5e1; }
+  .co-cell-input:focus {
+    border-color: #1a7a5e;
+    box-shadow: 0 0 0 2px rgba(26,122,94,0.12);
+    background: #fff;
+  }
+  .co-cell-input--error {
+    border-color: #fca5a5;
+    background: #fff8f8;
+  }
+  .co-cell-input--error::placeholder { color: #fca5a5; }
+  .co-cell-input--error:focus {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239,68,68,0.12);
   }
 
-  /* ── Footer ── */
+  /* Status chips */
+  .co-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .co-chip--ok {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+  }
+  .co-chip--error {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+  }
+
+  /* Footer */
   .co-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    background: #1a2332;
-    border: 1px solid #2d3748;
+    gap: 16px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 12px;
-    padding: 14px 16px;
+    padding: 14px 20px;
     flex-wrap: wrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
   .co-footer__hint {
-    display: flex; align-items: flex-start; gap: 8px;
-    font-size: 11px; color: #64748b;
-    max-width: 200px; line-height: 1.45;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: #94a3b8;
   }
-  .co-footer__check {
-    width: 16px; height: 16px;
-    background: #1e293b;
-    border: 1px solid #374151;
-    border-radius: 3px;
-    display: inline-flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    color: #4b5563;
+  .co-footer__actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
   }
-  .co-footer__actions { display: flex; gap: 10px; align-items: center; }
 
-  /* ── Buttons ── */
+  /* Buttons */
   .co-btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 10px 20px;
-    border-radius: 8px; border: none;
-    font-family: inherit; font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: all 0.2s;
-    text-align: center; line-height: 1.35;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+    line-height: 1;
   }
   .co-btn--ghost {
     background: transparent;
-    color: #94a3b8;
-    border: 1px solid #374151;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
   }
-  .co-btn--ghost:hover { background: #1e293b; color: #e2e8f0; }
+  .co-btn--ghost:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+    border-color: #cbd5e1;
+  }
   .co-btn--primary {
-    background: #0a3d2e;
+    background: #1a7a5e;
     color: #fff;
-    border: 1px solid #16a34a;
+    box-shadow: 0 1px 4px rgba(26,122,94,0.3);
   }
-  .co-btn--primary:hover:not(:disabled) { background: #0d5240; }
-  .co-btn--disabled { opacity: 0.45; cursor: not-allowed; }
+  .co-btn--primary:hover:not(:disabled) {
+    background: #15664f;
+    box-shadow: 0 4px 10px rgba(26,122,94,0.35);
+    transform: translateY(-1px);
+  }
+  .co-btn--primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 
-  @media (max-width: 600px) {
+  /* Responsive */
+  @media (max-width: 640px) {
+    .co-page { padding: 20px 16px 36px; }
     .co-form-grid { grid-template-columns: 1fr; }
+    .co-field { border-right: none; }
+    .co-field:nth-last-child(-n+2) { border-bottom: 1px solid #f1f5f9; }
+    .co-field:last-child { border-bottom: none; }
     .co-footer { flex-direction: column; align-items: stretch; }
-    .co-footer__hint { max-width: 100%; }
     .co-footer__actions { justify-content: flex-end; }
   }
 `;

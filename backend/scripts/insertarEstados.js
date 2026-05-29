@@ -43,6 +43,17 @@ const estados = [
     notificar_coordinador: false,
     notificar_funcionario: true
   },
+  // ← NUEVO: Oferta aprobada por coordinador y puesta en lista de espera
+  {
+    codigo: 'lista_espera',
+    nombre: 'Lista de Espera',
+    descripcion: 'Oferta aprobada por coordinador, en lista de espera para funcionario',
+    color: '#06b6d4',
+    orden: 5,
+    permite_edicion: false,
+    notificar_instructor: true,
+    notificar_funcionario: true
+  },
   {
     codigo: 'ficha_creada',
     nombre: 'Ficha Creada',

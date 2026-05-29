@@ -119,6 +119,54 @@ const crearSolicitud = async (req, res) => {
   }
 };
 
+// Eliminar solicitud (instructor que la creó o admin)
+const eliminarSolicitud = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = req.usuario; // puede ser Instructor o Admin
+
+    const solicitud = await SolicitudValidacion.findById(id);
+    if (!solicitud) {
+      return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+    }
+
+    // Log completo para depuración: mostrar campos clave
+    try {
+      const short = {
+        _id: solicitud._id,
+        estado: solicitud.estado,
+        fecha_solicitud: solicitud.fecha_solicitud,
+        instructor_id: solicitud.instructor_id,
+        coordinador_id: solicitud.coordinador_id,
+        oferta_id: solicitud.oferta_id ? {
+          _id: solicitud.oferta_id._id,
+          programa_formacion: solicitud.oferta_id.programa_formacion,
+          estado: solicitud.oferta_id.estado,
+          creado_por: solicitud.oferta_id.creado_por
+        } : null
+      };
+      console.log('📦 Solicitud (debug):', JSON.stringify(short, null, 2));
+    } catch (e) {
+      console.warn('No se pudo serializar solicitud para debug', e);
+    }
+
+    // Permitir eliminación sólo al instructor que creó la solicitud o al admin
+    const esInstructor = usuario && usuario._id && solicitud.instructor_id.toString() === usuario._id.toString();
+    const esAdmin = usuario && usuario.constructor && usuario.constructor.modelName === 'Admin';
+
+    if (!esInstructor && !esAdmin) {
+      return res.status(403).json({ success: false, message: 'No tienes permiso para eliminar esta solicitud' });
+    }
+
+    await SolicitudValidacion.findByIdAndDelete(id);
+
+    res.json({ success: true, message: 'Solicitud eliminada correctamente' });
+  } catch (error) {
+    console.error('Error en eliminarSolicitud:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // =============================================
 // INSTRUCTOR: Reenviar oferta corregida al funcionario
 // Estado: a_corregir → en_proceso
@@ -487,20 +535,34 @@ const getSolicitudById = async (req, res) => {
     const { id } = req.params;
     const coordinador = req.usuario;
 
-    const solicitud = await SolicitudValidacion.findOne({
-      _id: id,
-      coordinador_id: coordinador._id
-    })
+    console.log('🔍 getSolicitudById - coordinador en req.usuario:', coordinador?._id);
+
+    const solicitud = await SolicitudValidacion.findOne({ _id: id, coordinador_id: coordinador._id })
       .populate({
         path: 'oferta_id',
-        populate: {
-          path: 'programa_formacion',
-          select: 'nombre_programa codigo'
-        }
+        populate: [
+          { path: 'programa_formacion', select: 'nombre_programa codigo nivel_formacion duracion_maxima version area_conocimiento tipo_programa' },
+          { path: 'modalidad', select: 'nombre' },
+          { path: 'tipo_oferta', select: 'nombre' },
+          { path: 'programa_especial', select: 'nombre' },
+          { path: 'ambiente', select: 'nombre' },
+          { path: 'empresa_solicitante', select: 'nombre' },
+          { path: 'ubicacion.municipio', select: 'nombre' }
+        ]
       })
-      .populate('instructor_id', 'nombre apellido correoElectronico');
+      .populate('instructor_id', 'nombre apellido correoElectronico numeroIdentificacion numeroDocumento telefono celular');
 
     if (!solicitud) {
+      // Intento auxiliar para depuración: buscar por id sin filtrar por coordinador
+      const posible = await SolicitudValidacion.findById(id)
+        .populate({ path: 'oferta_id', populate: { path: 'programa_formacion', select: 'nombre_programa codigo' } })
+        .populate('instructor_id', 'nombre apellido correoElectronico');
+
+      if (posible) {
+        console.warn('⚠️ Solicitud encontrada pero coordinador no coincide. coordinadorReq=%s, coordinadorSolicitud=%s', coordinador._id, posible.coordinador_id);
+        return res.status(403).json({ success: false, message: 'No autorizado: no eres el coordinador asignado a esta solicitud' });
+      }
+
       return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
     }
 
@@ -660,6 +722,7 @@ module.exports = {
   crearSolicitud,
   getMisSolicitudes,
   reenviarOfertaCorregida,   // ← nueva: a_corregir → en_proceso (sin coordinador)
+  eliminarSolicitud,
 
   // Coordinador
   getSolicitudesPendientes,

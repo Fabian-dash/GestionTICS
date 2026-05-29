@@ -438,9 +438,10 @@ const getOfertasAprobadasPorTipo = async (req, res) => {
       });
     }
 
-    // Buscar los estados visibles para el funcionario: aprobada, en_proceso, completado
+    // Buscar los estados visibles para el funcionario: lista_espera, aprobada, en_proceso, completado
+    // (Lista de espera = aprobado por coordinador; el funcionario debe poder verla y tomarla)
     const estadosVisibles = await EstadoOferta.find({
-      codigo: { $in: ['aprobada', 'en_proceso', 'completado'] }
+      codigo: { $in: ['lista_espera', 'aprobada', 'en_proceso', 'completado'] }
     });
 
     if (!estadosVisibles.length) {
