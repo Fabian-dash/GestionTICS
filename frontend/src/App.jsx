@@ -12,7 +12,9 @@ import MisInstructores from './components/mis_instructores';
 import SolicitudesPendientes from './components/solicitudes_pendientes';
 import MisOfertas from './components/mis_ofertas';
 import FuncionarioDashboard from './components/funcionario_dashboard';
-import AdminPanel from './components/AdminPanel'; // ← nuevo
+import AdminPanel from './components/AdminPanel';
+import CorregirOferta from './components/corregirOferta'; // ← NUEVO
+import api from './services/api'; // ← NUEVO (para el reenvío)
 
 /* ─── Global styles ─── */
 const globalStyles = `
@@ -27,14 +29,12 @@ const globalStyles = `
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── Root layout ── */
   .app-root {
     display: flex;
     height: 100vh;
     overflow: hidden;
   }
 
-  /* ── Sidebar ── */
   .app-sidebar {
     width: 256px;
     min-width: 256px;
@@ -51,7 +51,6 @@ const globalStyles = `
     min-width: 66px;
   }
 
-  /* Brand */
   .app-brand {
     display: flex;
     align-items: center;
@@ -93,7 +92,6 @@ const globalStyles = `
   .app-brand__toggle svg { transition: transform .28s; }
   .app-brand__toggle--flipped svg { transform: rotate(180deg); }
 
-  /* Nav */
   .app-nav {
     flex: 1;
     padding: 14px 10px;
@@ -152,7 +150,6 @@ const globalStyles = `
     padding: 1px 6px; border-radius: 20px;
   }
 
-  /* Role chip */
   .app-role-chip {
     margin: 0 10px 10px;
     padding: 8px 12px;
@@ -174,7 +171,6 @@ const globalStyles = `
     display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* Profile & logout */
   .app-sidebar__footer {
     padding: 12px;
     border-top: 1px solid rgba(255,255,255,0.07);
@@ -220,14 +216,12 @@ const globalStyles = `
   .app-logout svg { width: 14px; height: 14px; }
   .app-logout:hover { background: rgba(239,68,68,0.2); color: white; }
 
-  /* ── Main ── */
   .app-main {
     flex: 1; display: flex; flex-direction: column;
     overflow: hidden;
     min-width: 0;
   }
 
-  /* ── Topbar ── */
   .app-topbar {
     height: 60px;
     background: white;
@@ -267,14 +261,12 @@ const globalStyles = `
     background: #16a34a;
   }
 
-  /* ── Content area ── */
   .app-content {
     flex: 1; overflow-y: auto;
     padding: 24px 28px;
     background: #f0f2f5;
   }
 
-  /* ── Coordinator info card ── */
   .coord-info-card {
     margin-top: auto;
     padding: 12px 14px;
@@ -393,8 +385,9 @@ const Dashboard = () => {
     : userTipo === 'coordinador' ? 'solicitudes'
     : 'crear';
 
-  const [vistaActiva, setVistaActiva] = useState(defaultVista);
-  const [collapsed, setCollapsed]     = useState(false);
+  const [vistaActiva, setVistaActiva]       = useState(defaultVista);
+  const [collapsed, setCollapsed]           = useState(false);
+  const [ofertaACorregir, setOfertaACorregir] = useState(null); // ← NUEVO
 
   const navItems = userTipo === 'admin' ? adminNav
     : userTipo === 'coordinador' ? coordinadorNav
@@ -405,13 +398,22 @@ const Dashboard = () => {
     window.location.href = '/login';
   };
 
+  // Al cambiar de vista, limpiar la oferta en corrección
+  const handleNavClick = (id) => {
+    setOfertaACorregir(null);
+    setVistaActiva(id);
+  };
+
   const initials  = `${user?.nombre || ''}`.trim().charAt(0).toUpperCase() || 'U';
   const fullName  = [user?.nombre, user?.apellido].filter(Boolean).join(' ');
 
-  // Color del badge según rol
   const roleColor = userTipo === 'admin' ? '#7c3aed'
     : userTipo === 'coordinador' ? '#0f6e56'
     : '#1d4ed8';
+
+  // Título del topbar: si está corrigiendo, mostrar breadcrumb especial
+  const topbarTitle = ofertaACorregir ? 'Mis Ofertas' : (labelMap[vistaActiva] || 'Panel');
+  const topbarSub   = ofertaACorregir ? 'Corregir oferta' : (labelMap[vistaActiva] || '');
 
   return (
     <>
@@ -420,7 +422,6 @@ const Dashboard = () => {
 
         {/* ── Sidebar ── */}
         <aside className={`app-sidebar${collapsed ? ' app-sidebar--collapsed' : ''}`}>
-          {/* Brand */}
           <div className="app-brand">
             <div className="app-brand__mark"><Ic.Logo /></div>
             {!collapsed && (
@@ -438,7 +439,6 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Nav */}
           <nav className="app-nav">
             {!collapsed && (
               <span className="app-nav__group-label">
@@ -451,7 +451,7 @@ const Dashboard = () => {
               <button
                 key={item.id}
                 className={`nav-btn${vistaActiva === item.id ? ' nav-btn--active' : ''}`}
-                onClick={() => setVistaActiva(item.id)}
+                onClick={() => handleNavClick(item.id)} // ← usa handleNavClick
                 title={collapsed ? item.label : ''}
               >
                 <span className="nav-btn__icon">{item.icon}</span>
@@ -459,7 +459,6 @@ const Dashboard = () => {
               </button>
             ))}
 
-            {/* Coordinador asignado (solo instructores) */}
             {!collapsed && userTipo === 'instructor' && user?.coordinadorAsignado?.nombre && (
               <>
                 <div className="app-nav__divider" />
@@ -471,7 +470,6 @@ const Dashboard = () => {
             )}
           </nav>
 
-          {/* Footer */}
           {!collapsed && (
             <div className="app-sidebar__footer">
               <div className="app-profile">
@@ -500,11 +498,11 @@ const Dashboard = () => {
           {/* Topbar */}
           <header className="app-topbar">
             <div className="app-topbar__left">
-              <h1 className="app-topbar__title">{labelMap[vistaActiva] || 'Panel'}</h1>
+              <h1 className="app-topbar__title">{topbarTitle}</h1>
               <div className="app-breadcrumb">
                 <span>Gestion y TICS</span>
                 <span className="app-breadcrumb__sep">/</span>
-                <span className="app-breadcrumb__current">{labelMap[vistaActiva]}</span>
+                <span className="app-breadcrumb__current">{topbarSub}</span>
               </div>
             </div>
             <div className="app-topbar__right">
@@ -536,8 +534,28 @@ const Dashboard = () => {
             {/* Instructor */}
             {userTipo === 'instructor' && (
               <>
-                {vistaActiva === 'crear'      && <CrearOferta onOfertaCreada={() => setVistaActiva('links')} />}
-                {vistaActiva === 'misofertas' && <MisOfertas />}
+                {vistaActiva === 'crear' && <CrearOferta onOfertaCreada={() => setVistaActiva('links')} />}
+
+                {/* Mis Ofertas: muestra lista o pantalla de corrección */}
+                {vistaActiva === 'misofertas' && !ofertaACorregir && (
+                  <MisOfertas onCorregir={(oferta) => setOfertaACorregir(oferta)} />
+                )}
+                {vistaActiva === 'misofertas' && ofertaACorregir && (
+                  <CorregirOferta
+                    oferta={ofertaACorregir}
+                    onCancelar={() => setOfertaACorregir(null)}
+                    onReenviar={async (data) => {
+                      try {
+                        await api.patch(`/ofertas/${ofertaACorregir._id}/reenviar`, data);
+                      } catch (e) {
+                        console.error('Error al reenviar oferta:', e);
+                      } finally {
+                        setOfertaACorregir(null);
+                      }
+                    }}
+                  />
+                )}
+
                 {vistaActiva === 'solicitar'  && <SolicitarOferta />}
                 {vistaActiva === 'links'      && <LinksInscripcion />}
                 {vistaActiva === 'inscritos'  && <VerInscritos />}
@@ -565,7 +583,7 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-/* ─── Admin route — solo permite tipo admin ─── */
+/* ─── Admin route ─── */
 const AdminRoute = ({ children }) => {
   if (!authService.isAuthenticated()) return <Navigate to="/login" />;
   const user = authService.getCurrentUser();

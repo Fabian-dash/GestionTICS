@@ -6,20 +6,31 @@ const {
   getFuncionarios,
   getFuncionariosPorModalidad,
   getFuncionariosParaOferta,
-  tomarOferta,
-  completarOferta
+  revisarOferta,
+  solicitarCorreccion,
+  aprobarOferta,
+  matricularOferta,
+  completarOferta,
 } = require('../controllers/funcionarioController');
 
-// Rutas públicas
+// ── Públicas ────────────────────────────────────────────────────────────────
 router.post('/registro', registrarFuncionario);
 
-// Rutas protegidas
-router.get('/', protect, getFuncionarios);
-router.get('/modalidad/:modalidadId', protect, getFuncionariosPorModalidad);
-router.get('/oferta/:ofertaId', protect, getFuncionariosParaOferta);
+// ── Consultas ────────────────────────────────────────────────────────────────
+router.get('/',                              protect, getFuncionarios);
+router.get('/modalidad/:modalidadId',        protect, getFuncionariosPorModalidad);
+router.get('/oferta/:ofertaId',              protect, getFuncionariosParaOferta);
 
-// Nuevas rutas: tomar y completar oferta
-router.patch('/tomar/:ofertaId', protect, tomarOferta);
-router.patch('/completar/:ofertaId', protect, completarOferta);
+// ── Flujo de estados ─────────────────────────────────────────────────────────
+//   lista_espera → en_proceso
+router.patch('/revisar/:ofertaId',           protect, revisarOferta);
+//   en_proceso   → a_corregir
+router.patch('/solicitar-correccion/:ofertaId', protect, solicitarCorreccion);
+//   en_proceso   → creada
+router.patch('/aprobar/:ofertaId',           protect, aprobarOferta);
+//   creada       → matriculada
+router.patch('/matricular/:ofertaId',        protect, matricularOferta);
+//   matriculada  → completado
+router.patch('/completar/:ofertaId',         protect, completarOferta);
 
 module.exports = router;

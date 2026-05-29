@@ -63,4 +63,31 @@ app.use((req, res) => {
   });
 });
 
+// Middleware de manejo de errores (debe ir al final)
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err);
+  
+  // Error de multer por tamaño de archivo
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({
+      success: false,
+      message: 'El archivo es demasiado grande. Máximo permitido: 25MB'
+    });
+  }
+  
+  // Error de multer por tipo de archivo
+  if (err.code === 'LIMIT_PART_COUNT' || err.message?.includes('Solo se permiten')) {
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'Tipo de archivo no permitido'
+    });
+  }
+  
+  // Errores generales
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Error interno del servidor'
+  });
+});
+
 module.exports = app;
