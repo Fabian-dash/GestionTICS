@@ -36,16 +36,13 @@ const TIPO_CONF = {
   'Popular':     { bg: T.purpleBg,   txt: T.purpleTxt,  border: '#ddd6fe', dot: T.purple    },
 };
 
-/* ─── Icons (mejora visual) ───────────────────────────────────── */
+/* ─── Icons ───────────────────────────────────────────────────── */
 const Ic = {
-  Users:    () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
-  Plus:     () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>,
-  Trash:    () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>,
-  Check:    () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>,
-  ChevronDown: () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>,
+  Users: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
+  Trash: () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>,
 };
 
-/* ─── Field wrapper (estilo refinado) ─────────────────────────── */
+/* ─── Field wrapper ───────────────────────────────────────────── */
 const Field = ({ label, children, hint }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
     <label style={{ fontSize: 12, fontWeight: 600, color: T.inkMid, letterSpacing: '0.02em' }}>
@@ -69,32 +66,16 @@ const FormularioCampesenaCompleto = ({ formData, setFormData }) => {
     setFormData({ ...formData, instructores: nuevos });
   };
 
-  const agregarInstructor = () => sync([...instructores, {
-    id: Date.now() + Math.random(),
-    tipo: 'Técnico',
-    horario: { hora_inicio: '08:00', hora_fin: '12:00', dias: [] },
-  }]);
-
   const eliminarInstructor  = id => sync(instructores.filter(i => i.id !== id));
   const actualizarCampo     = (id, campo, valor) => sync(instructores.map(i => i.id === id ? { ...i, [campo]: valor } : i));
   const actualizarHorario   = (id, nuevoHorario) => sync(instructores.map(i => i.id === id ? { ...i, horario: nuevoHorario } : i));
-
-  const validarInstructores = () => {
-    const errores = [];
-    instructores.forEach((inst, idx) => {
-      const n = idx + 1;
-      if (inst.horario.dias.length === 0)
-        errores.push(`Instructor ${n}: Selecciona al menos un día en el horario`);
-    });
-    return errores;
-  };
 
   return (
     <>
       <style>{CSS}</style>
       <div className="fc-root">
 
-        {/* ── ENCABEZADO MEJORADO ── */}
+        {/* ── ENCABEZADO ── */}
         <div className="fc-header">
           <div className="fc-header-left">
             <div className="fc-header-icon">
@@ -121,7 +102,6 @@ const FormularioCampesenaCompleto = ({ formData, setFormData }) => {
           return (
             <div key={inst.id} className="fc-card" style={{ animationDelay: `${idx * 0.08}s` }}>
 
-              {/* Card top bar con diseño más elegante */}
               <div className="fc-card-bar" style={{ background: tc.bg, borderBottom: `1px solid ${tc.border}` }}>
                 <div className="fc-card-bar-left">
                   <div className="fc-num-badge" style={{ background: tc.dot }}>{idx + 1}</div>
@@ -146,7 +126,6 @@ const FormularioCampesenaCompleto = ({ formData, setFormData }) => {
                 </div>
               </div>
 
-              {/* Card body con espaciado mejorado */}
               <div className="fc-card-body">
                 <div className="fc-section">
                   <div className="fc-section-title">
@@ -189,26 +168,12 @@ const FormularioCampesenaCompleto = ({ formData, setFormData }) => {
           );
         })}
 
-        {/* ── ACCIONES ── */}
-        <div className="fc-footer">
-          <button className="fc-btn-add-inst" type="button" onClick={agregarInstructor}>
-            <Ic.Plus /> Agregar instructor
-          </button>
-          <button className="fc-btn-validate" type="button" onClick={() => {
-            const errores = validarInstructores();
-            if (errores.length > 0) alert('Errores encontrados:\n\n• ' + errores.join('\n• '));
-            else alert('✅ Instructores válidos. Todos los datos están correctos.');
-          }}>
-            <Ic.Check /> Validar instructores
-          </button>
-        </div>
-
       </div>
     </>
   );
 };
 
-/* ─── CSS MEJORADO ────────────────────────────────────────────── */
+/* ─── CSS ─────────────────────────────────────────────────────── */
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
 
@@ -238,7 +203,6 @@ const CSS = `
     background: #f8fafc;
   }
 
-  /* ── Header mejorado ── */
   .fc-header {
     display: flex;
     align-items: center;
@@ -327,7 +291,6 @@ const CSS = `
     text-transform: uppercase;
   }
 
-  /* ── Cards ── */
   .fc-card {
     background: white;
     border: 1px solid rgba(0, 0, 0, 0.04);
@@ -431,7 +394,6 @@ const CSS = `
     gap: 28px;
   }
 
-  /* ── Sections ── */
   .fc-section {
     display: flex;
     flex-direction: column;
@@ -457,7 +419,6 @@ const CSS = `
     flex-shrink: 0;
   }
 
-  /* ── Tipo buttons modernos ── */
   .fc-tipo-row {
     display: flex;
     gap: 12px;
@@ -492,72 +453,12 @@ const CSS = `
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
   }
 
-  /* ── Horario wrapper ── */
   .fc-horario-wrapper {
     background: #fefefe;
     border-radius: 20px;
     padding: 4px 0;
   }
 
-  /* ── Footer y botones ── */
-  .fc-footer {
-    display: flex;
-    gap: 16px;
-    margin-top: 16px;
-    flex-wrap: wrap;
-  }
-
-  .fc-btn-add-inst,
-  .fc-btn-validate {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 14px 24px;
-    border-radius: 60px;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: none;
-    letter-spacing: 0.01em;
-  }
-
-  .fc-btn-add-inst {
-    background: white;
-    border: 1.5px solid #e2e8f0;
-    color: #1e293b;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-  }
-
-  .fc-btn-add-inst:hover {
-    border-color: #10b981;
-    background: #ecfdf5;
-    color: #0b5e4a;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px -8px rgba(16, 185, 129, 0.3);
-  }
-
-  .fc-btn-validate {
-    background: #0f172a;
-    color: white;
-    box-shadow: 0 6px 14px -6px rgba(15, 23, 42, 0.2);
-  }
-
-  .fc-btn-validate:hover {
-    background: #1e3a5f;
-    transform: translateY(-2px);
-    box-shadow: 0 12px 22px -10px #1e3a5f60;
-  }
-
-  .fc-btn-add-inst:active,
-  .fc-btn-validate:active {
-    transform: translateY(1px);
-  }
-
-  /* ── Responsive ── */
   @media (max-width: 680px) {
     .fc-root {
       padding: 0 12px 24px;
@@ -581,16 +482,12 @@ const CSS = `
     .fc-card-body {
       padding: 20px;
     }
-    .fc-footer {
-      flex-direction: column;
-    }
     .fc-tipo-btn {
       flex: 1;
       justify-content: center;
     }
   }
 
-  /* ── Ajuste para el picker externo ── */
   .fc-root .horario-picker,
   .fc-root [class*="HorarioPicker"] {
     width: 100%;
