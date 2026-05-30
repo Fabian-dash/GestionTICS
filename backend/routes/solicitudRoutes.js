@@ -13,7 +13,8 @@ const {
   descargarFicha,
   descargarCarta,
   descargarExcel,
-  descargarCedulas
+  descargarCedulas,
+  reenviarOfertaCorregida
 } = require('../controllers/solicitudController');
 
 // Rutas para instructores
@@ -25,6 +26,7 @@ router.get('/pendientes', protect, getSolicitudesPendientes);
 router.delete('/:id', protect, eliminarSolicitud);
 router.get('/:id', protect, getSolicitudById);
 router.put('/:id/rechazar', protect, rechazarSolicitud);
+router.put('/:id/reenviar', protect, reenviarOfertaCorregida);  // ← NUEVA
 router.get('/:id/archivos', protect, verificarArchivosSolicitud);
 
 // ===== NUEVAS RUTAS PARA DESCARGAR ARCHIVOS =====

@@ -70,9 +70,9 @@ const crearSolicitud = async (req, res) => {
     }
 
     // ===== CAMBIAR ESTADO DE LA OFERTA A "PENDIENTE" =====
-    const estadoPendiente = await EstadoOferta.findOne({ codigo: 'pendiente_coordinador' });
+    const estadoPendiente = await EstadoOferta.findOne({ codigo: 'pendiente' });
     if (!estadoPendiente) {
-      throw new Error('Estado "pendiente_coordinador" no encontrado. Ejecuta insertarEstados.js');
+      throw new Error('Estado "pendiente" no encontrado. Ejecuta insertarEstados.js');
     }
 
     oferta.estado = estadoPendiente._id;
@@ -176,6 +176,8 @@ const reenviarOfertaCorregida = async (req, res) => {
   try {
     const { oferta_id, mensaje } = req.body;
     const instructor = req.usuario;
+
+    console.log(instructor)
 
     // Verificar que la oferta existe y pertenece al instructor
     const oferta = await CreacionOferta.findById(oferta_id).populate('estado');

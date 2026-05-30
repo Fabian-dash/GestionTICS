@@ -10,10 +10,10 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    console.log('🔑 Token:', token ? token.substring(0, 20) + '...' : 'NO HAY TOKEN');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
-    console.log('📡 Petición a:', config.baseURL + config.url);
     return config;
   },
   (error) => Promise.reject(error)

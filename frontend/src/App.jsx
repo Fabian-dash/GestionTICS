@@ -13,8 +13,8 @@ import SolicitudesPendientes from './components/solicitudes_pendientes';
 import MisOfertas from './components/mis_ofertas';
 import FuncionarioDashboard from './components/funcionario_dashboard';
 import AdminPanel from './components/AdminPanel';
-import CorregirOferta from './components/corregirOferta'; // ← NUEVO
-import api from './services/api'; // ← NUEVO (para el reenvío)
+import CorregirOferta from './components/corregirOferta';
+import api from './services/api';
 
 /* ─── Global styles ─── */
 const globalStyles = `
@@ -376,6 +376,13 @@ const labelMap = {
   usuarios:     'Control de Acceso',
 };
 
+/* ─── Helper: determina si un aprendiz tiene datos incompletos ─── */
+const esIncompleto = (a) =>
+  !a.nombre?.trim() ||
+  !a.numero_documento?.trim() ||
+  !a.telefono?.trim() ||
+  !a.correo_electronico?.trim();
+
 /* ─── Dashboard ─── */
 const Dashboard = () => {
   const user      = authService.getCurrentUser();
@@ -385,9 +392,10 @@ const Dashboard = () => {
     : userTipo === 'coordinador' ? 'solicitudes'
     : 'crear';
 
-  const [vistaActiva, setVistaActiva]       = useState(defaultVista);
-  const [collapsed, setCollapsed]           = useState(false);
-  const [ofertaACorregir, setOfertaACorregir] = useState(null); // ← NUEVO
+  const [vistaActiva, setVistaActiva]         = useState(defaultVista);
+  const [collapsed, setCollapsed]             = useState(false);
+  const [ofertaACorregir, setOfertaACorregir] = useState(null);
+  const [refreshKey, setRefreshKey]           = useState(0);
 
   const navItems = userTipo === 'admin' ? adminNav
     : userTipo === 'coordinador' ? coordinadorNav
@@ -398,20 +406,16 @@ const Dashboard = () => {
     window.location.href = '/login';
   };
 
-  // Al cambiar de vista, limpiar la oferta en corrección
   const handleNavClick = (id) => {
     setOfertaACorregir(null);
     setVistaActiva(id);
   };
 
-  const initials  = `${user?.nombre || ''}`.trim().charAt(0).toUpperCase() || 'U';
   const fullName  = [user?.nombre, user?.apellido].filter(Boolean).join(' ');
-
   const roleColor = userTipo === 'admin' ? '#7c3aed'
     : userTipo === 'coordinador' ? '#0f6e56'
     : '#1d4ed8';
 
-  // Título del topbar: si está corrigiendo, mostrar breadcrumb especial
   const topbarTitle = ofertaACorregir ? 'Mis Ofertas' : (labelMap[vistaActiva] || 'Panel');
   const topbarSub   = ofertaACorregir ? 'Corregir oferta' : (labelMap[vistaActiva] || '');
 
@@ -451,7 +455,7 @@ const Dashboard = () => {
               <button
                 key={item.id}
                 className={`nav-btn${vistaActiva === item.id ? ' nav-btn--active' : ''}`}
-                onClick={() => handleNavClick(item.id)} // ← usa handleNavClick
+                onClick={() => handleNavClick(item.id)}
                 title={collapsed ? item.label : ''}
               >
                 <span className="nav-btn__icon">{item.icon}</span>
@@ -472,7 +476,6 @@ const Dashboard = () => {
 
           {!collapsed && (
             <div className="app-sidebar__footer">
-             
               <button className="app-logout" onClick={handleLogout}>
                 <Ic.Logout />
                 Cerrar sesión
@@ -483,7 +486,6 @@ const Dashboard = () => {
 
         {/* ── Main ── */}
         <div className="app-main">
-          {/* Topbar */}
           <header className="app-topbar">
             <div className="app-topbar__left">
               <h1 className="app-topbar__title">{topbarTitle}</h1>
@@ -509,7 +511,6 @@ const Dashboard = () => {
             </div>
           </header>
 
-          {/* Content */}
           <main className="app-content">
 
             {/* Admin */}
@@ -524,22 +525,77 @@ const Dashboard = () => {
               <>
                 {vistaActiva === 'crear' && <CrearOferta onOfertaCreada={() => setVistaActiva('links')} />}
 
-                {/* Mis Ofertas: muestra lista o pantalla de corrección */}
+                {/* ── Mis Ofertas: lista ── */}
                 {vistaActiva === 'misofertas' && !ofertaACorregir && (
-                  <MisOfertas onCorregir={(oferta) => setOfertaACorregir(oferta)} />
+                  <MisOfertas
+                    refreshKey={refreshKey}
+                    onCorregir={async (oferta) => {
+                      try {
+                        const respInscritos = await api.get(`/inscripciones/oferta/${oferta._id}`);
+                        const inscritos = respInscritos.data.data || [];
+
+                        // ── FIX 1: mapear campos correctamente
+                        // El endpoint devuelve nombres+apellidos por separado,
+                        // igual que en el modal del funcionario.
+                        const todosAprendices = inscritos.map((insc) => ({
+                          _id: insc._id,
+                          nombre: [insc.nombres, insc.apellidos]
+                            .filter(Boolean).join(' ').trim()
+                            || insc.nombre_completo
+                            || insc.nombre
+                            || '',
+                          numero_documento: insc.numero_documento || insc.numeroDocumento || '',
+                          telefono:         insc.telefono || insc.celular || '',
+                          correo_electronico: insc.correo_electronico || insc.correo || insc.email || '',
+                        }));
+
+                        // ── FIX 2: solo pasar los aprendices con datos incompletos
+                        const soloIncompletos = todosAprendices.filter(esIncompleto);
+
+                        setOfertaACorregir({ ...oferta, aprendices: soloIncompletos });
+                      } catch (e) {
+                        console.error('Error cargando inscritos:', e);
+                        setOfertaACorregir({ ...oferta, aprendices: [] });
+                      }
+                    }}
+                  />
                 )}
+
+                {/* ── Mis Ofertas: pantalla de corrección ── */}
                 {vistaActiva === 'misofertas' && ofertaACorregir && (
                   <CorregirOferta
                     oferta={ofertaACorregir}
+                    aprendicesIniciales={ofertaACorregir.aprendices || []}
                     onCancelar={() => setOfertaACorregir(null)}
                     onReenviar={async (data) => {
                       try {
-                        await api.patch(`/ofertas/${ofertaACorregir._id}/reenviar`, data);
+                        // 1. Cambiar estado de la oferta a "en_proceso"
+                        // (a_corregir → en_proceso, sin pasar por coordinador)
+                        await api.put(`/ofertas/${ofertaACorregir._id}/reenviar`, {
+                          comentario: 'Oferta corregida y reenviada al funcionario',
+                        });
+
+                        // 2. Actualizar solo los aprendices que se corrigieron
+                        if (data.aprendices?.length > 0) {
+                          await Promise.all(
+                            data.aprendices.map((a) =>
+                              api.put(`/inscripciones/${a._id}`, {
+                                nombre_completo:    a.nombre,
+                                numero_documento:   a.numero_documento,
+                                telefono:           a.telefono,
+                                correo_electronico: a.correo_electronico,
+                              })
+                            )
+                          );
+                        }
                       } catch (e) {
                         console.error('Error al reenviar oferta:', e);
-                      } finally {
-                        setOfertaACorregir(null);
+                        alert(e.response?.data?.message || 'Error al reenviar la oferta');
+                        return;
                       }
+
+                      setOfertaACorregir(null);
+                      setRefreshKey(k => k + 1);
                     }}
                   />
                 )}

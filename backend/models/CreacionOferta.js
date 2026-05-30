@@ -66,7 +66,8 @@ const creacionOfertaSchema = new mongoose.Schema({
       required: [true, 'La fecha de fin es obligatoria']
     }
   },
-    funcionario_asignado: {
+  
+  funcionario_asignado: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Funcionario',
     default: null
@@ -167,11 +168,35 @@ const creacionOfertaSchema = new mongoose.Schema({
     sparse: true
   },
   carta_pdf: {
-    type: String  // Aquí se guardará la ruta del archivo
+    type: String
   },
   firma_digital_pdf: {
-    type: String  // Aquí se guardará la ruta del archivo
+    type: String
   },
+  
+  // ✅ NUEVO CAMPO: Guardar novedades por aprendiz cuando el funcionario solicita corrección
+  motivo_correccion: {
+    type: String,
+    default: null
+  },
+  
+  novedades_aprendices: [{
+    aprendiz_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Inscripcion'
+    },
+    nombre: {
+      type: String
+    },
+    observacion: {
+      type: String,
+      default: 'Datos incorrectos o incompletos'
+    },
+    fecha: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   
   estado: {
     type: mongoose.Schema.Types.ObjectId,
@@ -191,7 +216,7 @@ const creacionOfertaSchema = new mongoose.Schema({
     },
     cambiado_por_modelo: {
       type: String,
-      enum: ['User', 'Coordinador', 'Funcionario']
+      enum: ['User', 'Coordinador', 'Funcionario', 'Instructor']
     },
     fecha: {
       type: Date,
@@ -199,10 +224,10 @@ const creacionOfertaSchema = new mongoose.Schema({
     }
   }]
 }, {
-  timestamps: true // Opcional: agrega createdAt y updatedAt automáticamente
+  timestamps: true
 });
 
-// ÍNDICES - DEFINIDOS DESPUÉS DEL ESQUEMA PERO DENTRO DEL MISMO ARCHIVO
+// ÍNDICES
 creacionOfertaSchema.index({ 'programa_formacion': 1 });
 creacionOfertaSchema.index({ 'modalidad': 1 });
 creacionOfertaSchema.index({ 'tipo_programa': 1 });
@@ -210,9 +235,8 @@ creacionOfertaSchema.index({ 'coordinador_asignado': 1 });
 creacionOfertaSchema.index({ 'empresa_solicitante': 1 });
 creacionOfertaSchema.index({ 'estado': 1 });
 creacionOfertaSchema.index({ 'fechas.inicio': 1 });
+creacionOfertaSchema.index({ 'funcionario_asignado': 1 });
 
-// Crear el modelo
 const CreacionOferta = mongoose.model('CreacionOferta', creacionOfertaSchema);
 
-// EXPORTAR EL MODELO
 module.exports = CreacionOferta;

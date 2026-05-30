@@ -264,7 +264,7 @@ const ModalDetalle = ({ oferta, onClose }) => {
 };
 
 // ── Componente principal ─────────────────────────────────────────────────────
-const MisOfertas = ({ onCorregir = () => {} }) => {
+const MisOfertas = ({ onCorregir = () => {}, refreshKey = 0 }) => {
   const [ofertas, setOfertas]               = useState([]);
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState('');
@@ -275,7 +275,7 @@ const MisOfertas = ({ onCorregir = () => {} }) => {
   const [ofertaDetalle, setOfertaDetalle]   = useState(null);
   const [leyendaVisible, setLeyendaVisible] = useState(false);
 
-  useEffect(() => { cargarOfertas(); }, []);
+  useEffect(() => { cargarOfertas(); }, [refreshKey]);
 
   const cargarOfertas = async () => {
     try {
