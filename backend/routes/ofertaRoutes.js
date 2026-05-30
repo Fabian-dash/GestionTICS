@@ -24,6 +24,7 @@ router.get('/coordinador/:coordinadorId', protect, ofertaController.obtenerOfert
 // ⚠️ RUTAS MÁS ESPECÍFICAS CON :id (/:id/algo)
 router.get('/:id/pdf', protect, ofertaController.descargarPDF);
 router.get('/:id/exportar-excel', protect, ofertaController.exportarExcelOfertaCompleta);
+router.put('/:id/reenviar',       protect, ofertaController.reenviarOferta);
 
 // ⚠️ RUTAS GENÉRICAS :id AL FINAL
 router.get('/:id', protect, ofertaController.obtenerOfertaPorId);

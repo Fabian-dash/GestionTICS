@@ -33,6 +33,16 @@ const estados = [
     notificar_coordinador: false
   },
   {
+    codigo: 'a_corregir',
+    nombre: 'A Corregir',
+    descripcion: 'El funcionario encontró novedades y solicita corrección',
+    color: '#e67e22',
+    orden: 3.5,
+    permite_edicion: true,
+    notificar_instructor: true,
+    notificar_funcionario: false
+  },
+  {
     codigo: 'aprobada',
     nombre: 'Aprobada',
     descripcion: 'El coordinador aprobó la oferta',
