@@ -20,12 +20,21 @@ const storage = multer.diskStorage({
   }
 });
 
-// Filtrar solo archivos PDF
+// Filtrar archivos: PDFs e imágenes
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'application/pdf') {
+  const allowedMimeTypes = [
+    'application/pdf',
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/gif',
+    'image/webp'
+  ];
+  
+  if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Solo se permiten archivos PDF'), false);
+    cb(new Error(`Solo se permiten archivos PDF e imágenes. Tipo recibido: ${file.mimetype}`), false);
   }
 };
 
@@ -33,7 +42,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
+    fileSize: 25 * 1024 * 1024 // 25MB
   }
 });
 

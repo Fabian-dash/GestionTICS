@@ -15,15 +15,20 @@ router.post('/', protect, uploadFields, ofertaController.crearOferta);
 
 // Rutas existentes...
 router.get('/', protect, ofertaController.obtenerOfertas);
-router.get('/mis-ofertas', protect, ofertaController.obtenerMisOfertas);
-router.get('/link/:codigo', ofertaController.getOfertaPorLink);
-router.get('/coordinador/:coordinadorId', protect, ofertaController.obtenerOfertasPorCoordinador);
-router.get('/:id', protect, ofertaController.obtenerOfertaPorId);
-router.put('/:id', protect, ofertaController.actualizarOferta);
-router.delete('/:id', protect, ofertaController.eliminarOferta);
-router.get('/:id/pdf', protect, ofertaController.descargarPDF);
 
-// ✅ NUEVA RUTA CORREGIDA - Usando ofertaController
+// ⚠️ RUTAS ESPECÍFICAS PRIMERO (antes de :id)
+router.get('/mis-ofertas',                protect, ofertaController.obtenerMisOfertas);
+router.get('/link/:codigo',                        ofertaController.getOfertaPorLink);
+router.get('/coordinador/:coordinadorId', protect, ofertaController.obtenerOfertasPorCoordinador);
+
+// ⚠️ RUTAS MÁS ESPECÍFICAS CON :id (/:id/algo)
+router.get('/:id/pdf',            protect, ofertaController.descargarPDF);
 router.get('/:id/exportar-excel', protect, ofertaController.exportarExcelOfertaCompleta);
+router.put('/:id/reenviar',       protect, ofertaController.reenviarOferta);
+
+// ⚠️ RUTAS GENÉRICAS :id AL FINAL
+router.get('/:id',    protect,              ofertaController.obtenerOfertaPorId);
+router.put('/:id',    protect, uploadFields, ofertaController.actualizarOferta);  // ← uploadFields agregado
+router.delete('/:id', protect,              ofertaController.eliminarOferta);
 
 module.exports = router;

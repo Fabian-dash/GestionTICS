@@ -8,10 +8,10 @@ const userSchema = new mongoose.Schema({
     trim: true
   },
   tipoIdentificacion: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Tipodoc",
-    required: true
-  },
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'TipoDoc',  // ← antes decía 'Tipodoc'
+  required: true
+},
   numeroIdentificacion: {
     type: String,
     required: true,
@@ -41,6 +41,10 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Coordinador',
     required: true
+  },
+  aprobado: {
+  type: Boolean,
+  default: false,
   },
   password: {
     type: String,

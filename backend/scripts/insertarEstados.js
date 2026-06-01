@@ -33,6 +33,16 @@ const estados = [
     notificar_coordinador: false
   },
   {
+    codigo: 'a_corregir',
+    nombre: 'A Corregir',
+    descripcion: 'El funcionario encontró novedades y solicita corrección',
+    color: '#e67e22',
+    orden: 3.5,
+    permite_edicion: true,
+    notificar_instructor: true,
+    notificar_funcionario: false
+  },
+  {
     codigo: 'aprobada',
     nombre: 'Aprobada',
     descripcion: 'El coordinador aprobó la oferta',
@@ -41,6 +51,17 @@ const estados = [
     permite_edicion: false,
     notificar_instructor: true,
     notificar_coordinador: false,
+    notificar_funcionario: true
+  },
+  // ← NUEVO: Oferta aprobada por coordinador y puesta en lista de espera
+  {
+    codigo: 'lista_espera',
+    nombre: 'Lista de Espera',
+    descripcion: 'Oferta aprobada por coordinador, en lista de espera para funcionario',
+    color: '#06b6d4',
+    orden: 5,
+    permite_edicion: false,
+    notificar_instructor: true,
     notificar_funcionario: true
   },
   {
@@ -61,12 +82,34 @@ const estados = [
     permite_edicion: false,
     notificar_instructor: true
   },
+  // ← NUEVO: el funcionario tomó la oferta y está trabajando en ella
+  {
+    codigo: 'en_proceso',
+    nombre: 'En Proceso',
+    descripcion: 'Oferta tomada por un funcionario, en proceso',
+    color: '#e67e22',
+    orden: 7,
+    permite_edicion: false,
+    notificar_instructor: true,
+    notificar_funcionario: true
+  },
+  // ← NUEVO: el funcionario marcó la oferta como completada
+  {
+    codigo: 'completado',
+    nombre: 'Completado',
+    descripcion: 'Oferta completada por el funcionario',
+    color: '#1abc9c',
+    orden: 8,
+    permite_edicion: false,
+    notificar_instructor: true,
+    notificar_funcionario: false
+  },
   {
     codigo: 'completada',
     nombre: 'Completada',
     descripcion: 'Aprendices matriculados, oferta finalizada',
     color: '#2c3e50',
-    orden: 7,
+    orden: 9,
     permite_edicion: false,
     notificar_instructor: true
   }

@@ -29,6 +29,10 @@ const coordinadorSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  aprobado: {
+  type: Boolean,
+  default: false,
+  },
   // Para que puedan iniciar sesión
   nombreUsuario: {
     type: String,

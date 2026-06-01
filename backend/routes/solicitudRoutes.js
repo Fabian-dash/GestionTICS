@@ -3,22 +3,30 @@ const router = express.Router();
 const { protect } = require('../middlewares/authMiddleware');
 const {
   crearSolicitud,
+  getMisSolicitudes,
   getSolicitudesPendientes,
   getSolicitudById,
+  eliminarSolicitud,
   rechazarSolicitud,
   aprobarSolicitud,  
   verificarArchivosSolicitud,
   descargarFicha,
   descargarCarta,
   descargarExcel,
-  descargarCedulas
+  descargarCedulas,
+  reenviarOfertaCorregida
 } = require('../controllers/solicitudController');
 
-// Rutas existentes
+// Rutas para instructores
 router.post('/validacion', protect, crearSolicitud);
+router.get('/mis-solicitudes', protect, getMisSolicitudes);  // ← NUEVA
+
+// Rutas existentes
 router.get('/pendientes', protect, getSolicitudesPendientes);
+router.delete('/:id', protect, eliminarSolicitud);
 router.get('/:id', protect, getSolicitudById);
 router.put('/:id/rechazar', protect, rechazarSolicitud);
+router.put('/:id/reenviar', protect, reenviarOfertaCorregida);  // ← NUEVA
 router.get('/:id/archivos', protect, verificarArchivosSolicitud);
 
 // ===== NUEVAS RUTAS PARA DESCARGAR ARCHIVOS =====

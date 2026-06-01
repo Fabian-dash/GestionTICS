@@ -12,6 +12,9 @@ import MisInstructores from './components/mis_instructores';
 import SolicitudesPendientes from './components/solicitudes_pendientes';
 import MisOfertas from './components/mis_ofertas';
 import FuncionarioDashboard from './components/funcionario_dashboard';
+import AdminPanel from './components/AdminPanel';
+import CorregirOferta from './components/corregirOferta';
+import api from './services/api';
 
 /* ─── Global styles ─── */
 const globalStyles = `
@@ -26,14 +29,12 @@ const globalStyles = `
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── Root layout ── */
   .app-root {
     display: flex;
     height: 100vh;
     overflow: hidden;
   }
 
-  /* ── Sidebar ── */
   .app-sidebar {
     width: 256px;
     min-width: 256px;
@@ -50,7 +51,6 @@ const globalStyles = `
     min-width: 66px;
   }
 
-  /* Brand */
   .app-brand {
     display: flex;
     align-items: center;
@@ -92,7 +92,6 @@ const globalStyles = `
   .app-brand__toggle svg { transition: transform .28s; }
   .app-brand__toggle--flipped svg { transform: rotate(180deg); }
 
-  /* Nav */
   .app-nav {
     flex: 1;
     padding: 14px 10px;
@@ -151,7 +150,6 @@ const globalStyles = `
     padding: 1px 6px; border-radius: 20px;
   }
 
-  /* Role chip */
   .app-role-chip {
     margin: 0 10px 10px;
     padding: 8px 12px;
@@ -173,7 +171,6 @@ const globalStyles = `
     display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* Profile & logout */
   .app-sidebar__footer {
     padding: 12px;
     border-top: 1px solid rgba(255,255,255,0.07);
@@ -216,20 +213,15 @@ const globalStyles = `
     transition: background .2s, color .2s;
     white-space: nowrap;
   }
-  .app-logout svg {
-    width: 14px;
-    height: 14px;
-  }
+  .app-logout svg { width: 14px; height: 14px; }
   .app-logout:hover { background: rgba(239,68,68,0.2); color: white; }
 
-  /* ── Main ── */
   .app-main {
     flex: 1; display: flex; flex-direction: column;
     overflow: hidden;
     min-width: 0;
   }
 
-  /* ── Topbar ── */
   .app-topbar {
     height: 60px;
     background: white;
@@ -238,7 +230,6 @@ const globalStyles = `
     padding: 0 28px;
     flex-shrink: 0;
   }
-  .app-topbar__left { }
   .app-topbar__title {
     font-size: 17px; font-weight: 700; color: #0f172a;
     line-height: 1;
@@ -270,14 +261,12 @@ const globalStyles = `
     background: #16a34a;
   }
 
-  /* ── Content area ── */
   .app-content {
     flex: 1; overflow-y: auto;
     padding: 24px 28px;
     background: #f0f2f5;
   }
 
-  /* ── Coordinator info card ── */
   .coord-info-card {
     margin-top: auto;
     padding: 12px 14px;
@@ -345,6 +334,11 @@ const Ic = {
       <path d="M12.5 12.5l3-3-3-3M15.5 9.5H7M10 13.5v1A1.5 1.5 0 018.5 16h-5A1.5 1.5 0 012 14.5v-11A1.5 1.5 0 013.5 2h5A1.5 1.5 0 0110 3.5v1"/>
     </svg>
   ),
+  Shield: () => (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M9 2L3 5v4c0 3.55 2.58 6.87 6 7.68C12.42 15.87 15 12.55 15 9V5L9 2z"/>
+    </svg>
+  ),
   ChevronLeft: ({ flipped }) => (
     <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2"
       style={{ transform: flipped ? 'rotate(180deg)' : 'none', transition: 'transform .28s' }}>
@@ -353,13 +347,13 @@ const Ic = {
   ),
 };
 
-/* ─── Nav item definitions ─── */
+/* ─── Nav definitions ─── */
 const instructorNav = [
-  { id: 'crear',     label: 'Crear Oferta',          icon: <Ic.Plus /> },
+  { id: 'crear',      label: 'Crear Oferta',         icon: <Ic.Plus /> },
   { id: 'misofertas', label: 'Mis Ofertas',           icon: <Ic.Clipboard /> },
-  { id: 'solicitar', label: 'Solicitar Validación',   icon: <Ic.FileText /> },
-  { id: 'links',     label: 'Links de Inscripción',   icon: <Ic.Link /> },
-  { id: 'inscritos', label: 'Ver Inscritos',          icon: <Ic.Users /> },
+  { id: 'solicitar',  label: 'Solicitar Validación',  icon: <Ic.FileText /> },
+  { id: 'links',      label: 'Links de Inscripción',  icon: <Ic.Link /> },
+  { id: 'inscritos',  label: 'Ver Inscritos',         icon: <Ic.Users /> },
 ];
 
 const coordinadorNav = [
@@ -367,39 +361,71 @@ const coordinadorNav = [
   { id: 'instructores', label: 'Mis Instructores',          icon: <Ic.Users /> },
 ];
 
+const adminNav = [
+  { id: 'usuarios', label: 'Control de Acceso', icon: <Ic.Shield /> },
+];
+
 const labelMap = {
-  crear: 'Crear Oferta',
-  misofertas: 'Mis Ofertas',
-  solicitar: 'Solicitar Validación',
-  links: 'Links de Inscripción',
-  inscritos: 'Ver Inscritos',
-  solicitudes: 'Solicitudes de Validación',
+  crear:        'Crear Oferta',
+  misofertas:   'Mis Ofertas',
+  solicitar:    'Solicitar Validación',
+  links:        'Links de Inscripción',
+  inscritos:    'Ver Inscritos',
+  solicitudes:  'Solicitudes de Validación',
   instructores: 'Mis Instructores',
+  usuarios:     'Control de Acceso',
 };
+
+/* ─── Helper: determina si un aprendiz tiene datos incompletos ─── */
+const esIncompleto = (a) =>
+  !a.nombre?.trim() ||
+  !a.numero_documento?.trim() ||
+  !a.telefono?.trim() ||
+  !a.correo_electronico?.trim();
 
 /* ─── Dashboard ─── */
 const Dashboard = () => {
-  const [vistaActiva, setVistaActiva] = useState('crear');
-  const [collapsed, setCollapsed] = useState(false);
-  const user = authService.getCurrentUser();
-  const userTipo = user?.tipo || 'instructor';
-  const navItems = userTipo === 'instructor' ? instructorNav : coordinadorNav;
+  const user      = authService.getCurrentUser();
+  const userTipo  = user?.tipo || 'instructor';
+
+  const defaultVista = userTipo === 'admin' ? 'usuarios'
+    : userTipo === 'coordinador' ? 'solicitudes'
+    : 'crear';
+
+  const [vistaActiva, setVistaActiva]         = useState(defaultVista);
+  const [collapsed, setCollapsed]             = useState(false);
+  const [ofertaACorregir, setOfertaACorregir] = useState(null);
+  const [refreshKey, setRefreshKey]           = useState(0);
+
+  const navItems = userTipo === 'admin' ? adminNav
+    : userTipo === 'coordinador' ? coordinadorNav
+    : instructorNav;
 
   const handleLogout = () => {
     authService.logout();
     window.location.href = '/login';
   };
 
-  const initials = `${user?.nombre || ''}`.trim().charAt(0).toUpperCase() || 'U';
-  const fullName = [user?.nombre, user?.apellido].filter(Boolean).join(' ');
+  const handleNavClick = (id) => {
+    setOfertaACorregir(null);
+    setVistaActiva(id);
+  };
+
+  const fullName  = [user?.nombre, user?.apellido].filter(Boolean).join(' ');
+  const roleColor = userTipo === 'admin' ? '#7c3aed'
+    : userTipo === 'coordinador' ? '#0f6e56'
+    : '#1d4ed8';
+
+  const topbarTitle = ofertaACorregir ? 'Mis Ofertas' : (labelMap[vistaActiva] || 'Panel');
+  const topbarSub   = ofertaACorregir ? 'Corregir oferta' : (labelMap[vistaActiva] || '');
 
   return (
     <>
       <style>{globalStyles}</style>
       <div className="app-root">
+
         {/* ── Sidebar ── */}
         <aside className={`app-sidebar${collapsed ? ' app-sidebar--collapsed' : ''}`}>
-          {/* Brand */}
           <div className="app-brand">
             <div className="app-brand__mark"><Ic.Logo /></div>
             {!collapsed && (
@@ -417,18 +443,19 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Nav */}
           <nav className="app-nav">
             {!collapsed && (
               <span className="app-nav__group-label">
-                {userTipo === 'instructor' ? 'INSTRUCTOR' : 'COORDINADOR'}
+                {userTipo === 'admin' ? 'ADMINISTRADOR'
+                  : userTipo === 'coordinador' ? 'COORDINADOR'
+                  : 'INSTRUCTOR'}
               </span>
             )}
             {navItems.map(item => (
               <button
                 key={item.id}
                 className={`nav-btn${vistaActiva === item.id ? ' nav-btn--active' : ''}`}
-                onClick={() => setVistaActiva(item.id)}
+                onClick={() => handleNavClick(item.id)}
                 title={collapsed ? item.label : ''}
               >
                 <span className="nav-btn__icon">{item.icon}</span>
@@ -436,7 +463,6 @@ const Dashboard = () => {
               </button>
             ))}
 
-            {/* Coordinator info */}
             {!collapsed && userTipo === 'instructor' && user?.coordinadorAsignado?.nombre && (
               <>
                 <div className="app-nav__divider" />
@@ -448,16 +474,8 @@ const Dashboard = () => {
             )}
           </nav>
 
-          {/* Footer */}
           {!collapsed && (
             <div className="app-sidebar__footer">
-              <div className="app-profile">
-                <div className="app-profile__avatar">{initials}</div>
-                <div style={{ overflow: 'hidden' }}>
-                  <p className="app-profile__name">{fullName}</p>
-                  <p className="app-profile__role">{userTipo}</p>
-                </div>
-              </div>
               <button className="app-logout" onClick={handleLogout}>
                 <Ic.Logout />
                 Cerrar sesión
@@ -468,20 +486,22 @@ const Dashboard = () => {
 
         {/* ── Main ── */}
         <div className="app-main">
-          {/* Topbar */}
           <header className="app-topbar">
             <div className="app-topbar__left">
-              <h1 className="app-topbar__title">{labelMap[vistaActiva] || 'Panel de Control'}</h1>
+              <h1 className="app-topbar__title">{topbarTitle}</h1>
               <div className="app-breadcrumb">
                 <span>Gestion y TICS</span>
                 <span className="app-breadcrumb__sep">/</span>
-                <span className="app-breadcrumb__current">{labelMap[vistaActiva]}</span>
+                <span className="app-breadcrumb__current">{topbarSub}</span>
               </div>
             </div>
             <div className="app-topbar__right">
               <div className="app-user-tag">
-                <span className="app-user-tag__dot" />
-                {fullName} · <span style={{ textTransform: 'capitalize', opacity: .8 }}>{userTipo}</span>
+                <span className="app-user-tag__dot" style={{ background: roleColor }} />
+                {fullName || user?.nombreUsuario} ·{' '}
+                <span style={{ textTransform: 'capitalize', opacity: .8 }}>
+                  {userTipo === 'admin' ? 'Administrador' : userTipo}
+                </span>
               </div>
               <img
                 src="https://www.sena.edu.co/Style%20Library/alayout/images/logoSena.png"
@@ -491,23 +511,109 @@ const Dashboard = () => {
             </div>
           </header>
 
-          {/* Content */}
           <main className="app-content">
+
+            {/* Admin */}
+            {userTipo === 'admin' && (
+              <>
+                {vistaActiva === 'usuarios' && <AdminPanel />}
+              </>
+            )}
+
+            {/* Instructor */}
             {userTipo === 'instructor' && (
               <>
-                {vistaActiva === 'crear'      && <CrearOferta />}
-                {vistaActiva === 'misofertas' && <MisOfertas />}
+                {vistaActiva === 'crear' && <CrearOferta onOfertaCreada={() => setVistaActiva('links')} />}
+
+                {/* ── Mis Ofertas: lista ── */}
+                {vistaActiva === 'misofertas' && !ofertaACorregir && (
+                  <MisOfertas
+                    refreshKey={refreshKey}
+                    onCorregir={async (oferta) => {
+                      try {
+                        const respInscritos = await api.get(`/inscripciones/oferta/${oferta._id}`);
+                        const inscritos = respInscritos.data.data || [];
+
+                        // ── FIX 1: mapear campos correctamente
+                        // El endpoint devuelve nombres+apellidos por separado,
+                        // igual que en el modal del funcionario.
+                        const todosAprendices = inscritos.map((insc) => ({
+                          _id: insc._id,
+                          nombre: [insc.nombres, insc.apellidos]
+                            .filter(Boolean).join(' ').trim()
+                            || insc.nombre_completo
+                            || insc.nombre
+                            || '',
+                          numero_documento: insc.numero_documento || insc.numeroDocumento || '',
+                          telefono:         insc.telefono || insc.celular || '',
+                          correo_electronico: insc.correo_electronico || insc.correo || insc.email || '',
+                        }));
+
+                        // ── FIX 2: solo pasar los aprendices con datos incompletos
+                        const soloIncompletos = todosAprendices.filter(esIncompleto);
+
+                        setOfertaACorregir({ ...oferta, aprendices: soloIncompletos });
+                      } catch (e) {
+                        console.error('Error cargando inscritos:', e);
+                        setOfertaACorregir({ ...oferta, aprendices: [] });
+                      }
+                    }}
+                  />
+                )}
+
+                {/* ── Mis Ofertas: pantalla de corrección ── */}
+                {vistaActiva === 'misofertas' && ofertaACorregir && (
+                  <CorregirOferta
+                    oferta={ofertaACorregir}
+                    aprendicesIniciales={ofertaACorregir.aprendices || []}
+                    onCancelar={() => setOfertaACorregir(null)}
+                    onReenviar={async (data) => {
+                      try {
+                        // 1. Cambiar estado de la oferta a "en_proceso"
+                        // (a_corregir → en_proceso, sin pasar por coordinador)
+                        await api.put(`/ofertas/${ofertaACorregir._id}/reenviar`, {
+                          comentario: 'Oferta corregida y reenviada al funcionario',
+                        });
+
+                        // 2. Actualizar solo los aprendices que se corrigieron
+                        if (data.aprendices?.length > 0) {
+                          await Promise.all(
+                            data.aprendices.map((a) =>
+                              api.put(`/inscripciones/${a._id}`, {
+                                nombre_completo:    a.nombre,
+                                numero_documento:   a.numero_documento,
+                                telefono:           a.telefono,
+                                correo_electronico: a.correo_electronico,
+                              })
+                            )
+                          );
+                        }
+                      } catch (e) {
+                        console.error('Error al reenviar oferta:', e);
+                        alert(e.response?.data?.message || 'Error al reenviar la oferta');
+                        return;
+                      }
+
+                      setOfertaACorregir(null);
+                      setRefreshKey(k => k + 1);
+                    }}
+                  />
+                )}
+
                 {vistaActiva === 'solicitar'  && <SolicitarOferta />}
                 {vistaActiva === 'links'      && <LinksInscripcion />}
                 {vistaActiva === 'inscritos'  && <VerInscritos />}
               </>
             )}
+
+            {/* Coordinador */}
             {userTipo === 'coordinador' && (
               <>
                 {vistaActiva === 'solicitudes'  && <SolicitudesPendientes />}
                 {vistaActiva === 'instructores' && <MisInstructores />}
               </>
             )}
+
           </main>
         </div>
       </div>
@@ -521,6 +627,14 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+/* ─── Admin route ─── */
+const AdminRoute = ({ children }) => {
+  if (!authService.isAuthenticated()) return <Navigate to="/login" />;
+  const user = authService.getCurrentUser();
+  if (user?.tipo !== 'admin') return <Navigate to="/dashboard" />;
+  return children;
+};
+
 /* ─── App ─── */
 function App() {
   return (
@@ -529,8 +643,12 @@ function App() {
         <Route path="/inscribirse/:codigo" element={<FormularioInscripcion />} />
         <Route path="/login"    element={<Login />} />
         <Route path="/registro" element={<Registro />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/funcionario" element={<ProtectedRoute><FuncionarioDashboard /></ProtectedRoute>} />
+        <Route path="/dashboard" element={
+          <ProtectedRoute><Dashboard /></ProtectedRoute>
+        } />
+        <Route path="/funcionario" element={
+          <ProtectedRoute><FuncionarioDashboard /></ProtectedRoute>
+        } />
         <Route path="/"  element={<Navigate to="/login" />} />
         <Route path="*"  element={<Navigate to="/login" />} />
       </Routes>

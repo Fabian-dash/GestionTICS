@@ -50,7 +50,6 @@ const estadoOfertaSchema = new mongoose.Schema({
 });
 
 // Índices para mejorar búsquedas
-estadoOfertaSchema.index({ codigo: 1 });
 estadoOfertaSchema.index({ orden: 1 });
 estadoOfertaSchema.index({ activo: 1 });
 

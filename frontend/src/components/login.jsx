@@ -293,8 +293,8 @@ const Login = () => {
             </div>
           </div>
 
-          <h2 className="l-heading">Bienvenido de nuevo</h2>
-          <p className="l-sub">Ingresa tus credenciales para continuar a la plataforma.</p>
+          <h2 className="l-heading">Bienvenido</h2>
+          <p className="l-sub">Ingresa tus credenciales para ingresar al sistema.</p>
 
           {error && <div className="l-error">{error}</div>}
 

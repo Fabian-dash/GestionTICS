@@ -10,7 +10,11 @@ const {
 // Todas las rutas requieren autenticación
 router.use(protect);
 
-// Obtener ofertas aprobadas según el tipo de funcionario
+// ── El frontend llama a /todas/:tipo ─────────────────────
+// Alias que apunta a la misma función que /aprobadas/:tipo
+router.get('/todas/:tipo',    getOfertasAprobadasPorTipo);
+
+// Ruta original (se mantiene para no romper nada)
 router.get('/aprobadas/:tipo', getOfertasAprobadasPorTipo);
 
 // Registrar ficha de Sofía Plus para una oferta
