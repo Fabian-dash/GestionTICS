@@ -136,8 +136,8 @@ const HorarioPicker = ({ horario, fechaInicio, fechaFin, duracionHoras, onChange
       {(horaValida || hayDias) && (
         <div style={s.panelCalculo}>
           <div style={s.panelCalculoTitle}>📊 Resumen de carga horaria</div>
-          <div style={s.panelCalculoGrid}>
 
+          <div style={s.panelCalculoGrid}>
             <div style={s.statBox}>
               <span style={s.statBoxNum}>{hayDias ? stats.horasPorSemana.toFixed(1) : '—'}</span>
               <span style={s.statBoxLabel}>horas / semana</span>
@@ -162,11 +162,7 @@ const HorarioPicker = ({ horario, fechaInicio, fechaFin, duracionHoras, onChange
                   <span style={{ ...s.statBoxLabel, color: '#0c4a6e' }}>meses estimados</span>
                 </div>
               </>
-            ) : (
-              <div style={s.statBoxWarn}>
-                ⚠ El programa no tiene duración registrada. El cálculo de fecha fin no está disponible.
-              </div>
-            )}
+            ) : null}
           </div>
 
           {/* Flecha de resultado: fechas */}
@@ -191,6 +187,7 @@ const HorarioPicker = ({ horario, fechaInicio, fechaFin, duracionHoras, onChange
           {duracionHoras && fechaInicio && !hayDias && (
             <p style={s.guiaMensaje}>👆 Selecciona al menos un día para calcular la fecha fin.</p>
           )}
+
         </div>
       )}
 
@@ -397,15 +394,6 @@ const s = {
     textTransform: 'uppercase',
     letterSpacing: '0.05em'
   },
-  statBoxWarn: {
-    fontSize: '12px',
-    color: '#92400e',
-    background: '#fef3c7',
-    border: '1px solid #fde68a',
-    borderRadius: '10px',
-    padding: '10px 14px',
-    flex: 1
-  },
   fechasResultado: {
     display: 'flex',
     alignItems: 'center',
@@ -453,14 +441,5 @@ const s = {
     marginBottom: 0
   }
 };
-
-// Responsive: en pantallas pequeñas, colapsar grid de días
-const responsiveStyle = `
-  @media (max-width: 600px) {
-    .hp-dias-grid {
-      grid-template-columns: repeat(4, 1fr) !important;
-    }
-  }
-`;
 
 export default HorarioPicker;

@@ -282,7 +282,10 @@ const getOfertasAprobadasPorTipo = async (req, res) => {
       .populate('ubicacion.municipio')
       .populate('programa_especial')
       .populate('estado')
-      .populate({ path: 'creado_por', select: 'nombre apellido' })
+      // ✅ FIX: se agregan correoElectronico, telefono y numeroIdentificacion
+      // para que el modal de detalle pueda mostrar todos los datos del instructor.
+      // Antes solo llegaban 'nombre' y 'apellido', dejando esos campos en '—'.
+      .populate({ path: 'creado_por', select: 'nombre apellido correoElectronico telefono numeroIdentificacion' })
       .populate({ path: 'empresa_solicitante', select: 'nombre nit' })
       .populate('coordinador_asignado', 'nombre')
       .populate('funcionario_asignado', 'nombre nombreUsuario')
@@ -417,8 +420,27 @@ const exportarExcelOfertaCompleta = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const actualizarOferta = async (req, res) => {
   try {
+    const ofertaActual = await CreacionOferta.findById(req.params.id);
+    if (!ofertaActual) {
+      return res.status(404).json({ success: false, message: 'Oferta no encontrada' });
+    }
+
+    const update = { ...req.body };
+
+    if (req.files?.carta_pdf?.[0]) {
+      const nuevaCarta = req.files.carta_pdf[0].path;
+      if (ofertaActual.carta_pdf && fs.existsSync(ofertaActual.carta_pdf)) {
+        try { fs.unlinkSync(ofertaActual.carta_pdf); } catch (e) {
+          console.warn('⚠️ No se pudo borrar la carta anterior:', e.message);
+        }
+      }
+      update.carta_pdf = nuevaCarta;
+    }
+
     const ofertaActualizada = await CreacionOferta.findByIdAndUpdate(
-      req.params.id, req.body, { new: true, runValidators: true }
+      req.params.id,
+      update,
+      { new: true, runValidators: true }
     )
       .populate('programa_formacion')
       .populate('modalidad')
@@ -426,11 +448,9 @@ const actualizarOferta = async (req, res) => {
       .populate('tipo_oferta')
       .populate('ubicacion.municipio')
       .populate('programa_especial')
-      .populate({ path: 'creado_por', select: 'nombre apellido nombreUsuario' })
+      .populate({ path: 'creado_por',         select: 'nombre apellido nombreUsuario' })
       .populate({ path: 'empresa_solicitante', select: 'nombre nit' })
       .populate('coordinador_asignado', 'nombre');
-
-    if (!ofertaActualizada) return res.status(404).json({ success: false, message: 'Oferta no encontrada' });
 
     res.json({ success: true, message: 'Oferta actualizada correctamente', data: ofertaActualizada });
   } catch (error) {
@@ -486,7 +506,7 @@ const reenviarOferta = async (req, res) => {
     if (estadoActual === 'a_corregir') {
       nuevoEstadoCodigo = 'en_proceso';              // ✅ vuelve al funcionario
     } else if (estadoActual === 'borrador' || estadoActual === 'rechazada') {
-      nuevoEstadoCodigo = 'pendiente_coordinador';   // va al coordinador
+      nuevoEstadoCodigo = 'pendiente';  // va al coordinador
     } else {
       return res.status(400).json({
         success: false,

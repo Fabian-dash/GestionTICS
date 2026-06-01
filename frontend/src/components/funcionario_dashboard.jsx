@@ -586,21 +586,9 @@ const OfertaCard = ({
           </button>
         )}
 
-        {/* EN PROCESO + MÍA: si fue corregida → solo Detalle (matricula desde adentro) */}
-        {enProcesoMia && !corregida && (
-          <>
-            <button className="fd-btn fd-btn--warn fd-btn--sm"
-              disabled={!!actionLoading}
-              onClick={() => onCorreccion(oferta)}>
-              ✎ Corrección
-            </button>
-            <button className="fd-btn fd-btn--success fd-btn--sm"
-              disabled={!!actionLoading}
-              onClick={() => onCrear(oferta._id)}>
-              {actionLoading ? <><Spinner/> ...</> : '✓ Crear'}
-            </button>
-          </>
-        )}
+        {/* ✅ CAMBIO 1: eliminados botones Corrección y Crear de la tarjeta.
+            Estas acciones ahora solo están disponibles dentro del Modal Detalle
+            (pestaña "Decisión"), manteniendo el flujo de revisión centralizado. */}
 
         {enProcesoMia && (
           <button className="fd-btn fd-btn--info fd-btn--sm"
@@ -735,17 +723,61 @@ const ModalDetalle = ({
           {tab === 'info' && (
             <div className="fd-detail-grid">
               <Section title="Instructor">
-                <Field label="Nombre"    value={[inst.nombre, inst.apellido].filter(Boolean).join(' ') || '—'} />
-                <Field label="Correo"    value={inst.correoElectronico || inst.correo || '—'} mono />
-                <Field label="Documento" value={inst.numeroIdentificacion || '—'} mono />
-                <Field label="Teléfono"  value={inst.telefono || '—'} />
+                {/* ✅ CAMBIO 2: mapeo defensivo de campos del instructor.
+                    El backend puede enviar camelCase o snake_case según la versión
+                    del populate, por lo que se cubren ambas variantes en cada OR. */}
+                <Field label="Nombre"
+                  value={
+                    [inst.nombre, inst.apellido].filter(Boolean).join(' ')
+                    || [inst.nombres, inst.apellidos].filter(Boolean).join(' ')
+                    || '—'
+                  }
+                />
+                <Field label="Correo"
+                  value={
+                    inst.correoElectronico
+                    || inst.correo_electronico
+                    || inst.correo
+                    || inst.email
+                    || '—'
+                  }
+                  mono
+                />
+                <Field label="Documento"
+                  value={
+                    inst.numeroIdentificacion
+                    || inst.numero_identificacion
+                    || inst.documento
+                    || inst.cedula
+                    || '—'
+                  }
+                  mono
+                />
+                <Field label="Teléfono"
+                  value={
+                    inst.telefono
+                    || inst.celular
+                    || inst.phone
+                    || '—'
+                  }
+                />
               </Section>
+
               <Section title="Programa">
                 <Field label="Código"  value={prog.codigo || '—'} mono />
                 <Field label="Nombre"  value={prog.nombre_programa || '—'} wide />
-                <Field label="Nivel"   value={prog.nivel || '—'} />
+                {/* ✅ CAMBIO 3: mapeo defensivo del nivel del programa */}
+                <Field label="Nivel"
+                  value={
+                    prog.nivel
+                    || prog.nivel_formacion
+                    || prog.nivel_programa
+                    || '—'
+                  }
+                />
                 <Field label="Horas"   value={prog.duracion_maxima ? `${prog.duracion_maxima} h` : '—'} />
               </Section>
+
               <Section title="Oferta">
                 <Field label="Municipio" value={oferta.ubicacion?.municipio?.nombre || '—'} />
                 <Field label="Empresa"   value={oferta.empresa_solicitante?.nombre || '—'} />
@@ -858,7 +890,6 @@ const ModalDetalle = ({
                   <div className="fd-decision__corregida-info">
                     <span>📋 Revisa la pestaña <strong>Aprendices</strong> para confirmar que los datos están correctos.</span>
                   </div>
-                  {/* ✅ CAMBIO CLAVE: llama onMatricular(oferta) que usa aprobar-y-matricular */}
                   <button
                     className="fd-btn fd-btn--matricular"
                     style={{ width: '100%', marginTop: 4 }}

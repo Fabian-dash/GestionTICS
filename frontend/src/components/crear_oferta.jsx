@@ -43,7 +43,7 @@ const T = {
   },
 };
 
-// ===== COMPONENTE AUTOCOMPLETE REUTILIZABLE (con estilos mejorados) =====
+// ===== COMPONENTE AUTOCOMPLETE REUTILIZABLE =====
 const Autocomplete = ({ opciones, valorId, onChange, placeholder, displayFn, required }) => {
   const [texto, setTexto] = useState('');
   const [abierto, setAbierto] = useState(false);
@@ -159,7 +159,14 @@ const CrearOferta = ({ onOfertaCreada }) => {
     programa_especial: '',
     convenio: { nombre: '' },
     horario: { hora_inicio: '08:00', hora_fin: '12:00', dias: [] },
-    instructor: { nombre: '', apellido: '', correoElectronico: '', tipoIdentificacion: '', numeroIdentificacion: '' },
+    instructor: {
+      nombre: '',
+      apellido: '',
+      correoElectronico: '',
+      tipoIdentificacion: '',
+      numeroIdentificacion: '',
+      celular: ''         // ← campo extra que el backend puede requerir
+    },
     firma_digital_pdf: null,
     carta_pdf: null
   });
@@ -191,11 +198,12 @@ const CrearOferta = ({ onOfertaCreada }) => {
           setFormData(prev => ({
             ...prev,
             instructor: {
-              nombre: parsedUser.nombre || '',
-              apellido: parsedUser.apellido || '',
-              correoElectronico: parsedUser.correoElectronico || '',
-              tipoIdentificacion: parsedUser.tipoIdentificacion?.nombre || parsedUser.tipoIdentificacion || '',
-              numeroIdentificacion: parsedUser.numeroIdentificacion || ''
+              nombre:               parsedUser.nombre              || '',
+              apellido:             parsedUser.apellido             || '',
+              correoElectronico:    parsedUser.correoElectronico    || '',
+              tipoIdentificacion:   parsedUser.tipoIdentificacion?.nombre || parsedUser.tipoIdentificacion || '',
+              numeroIdentificacion: parsedUser.numeroIdentificacion || '',
+              celular:              parsedUser.celular              || ''
             }
           }));
         }
@@ -207,7 +215,10 @@ const CrearOferta = ({ onOfertaCreada }) => {
 
   const cargarDatosIniciales = async () => {
     try {
-      const [programasRes, modalidadesRes, tiposProgramaRes, tiposOfertaRes, municipiosRes, programasEspecialesRes, empresasRes] = await Promise.all([
+      const [
+        programasRes, modalidadesRes, tiposProgramaRes, tiposOfertaRes,
+        municipiosRes, programasEspecialesRes, empresasRes
+      ] = await Promise.all([
         api.get('/programas-formacion'),
         api.get('/modalidades'),
         api.get('/tipos-programa'),
@@ -231,7 +242,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
 
   useEffect(() => {
     if (tiposPrograma.length > 0) {
-      const regular = tiposPrograma.find(t => t.nombre === 'Regular');
+      const regular   = tiposPrograma.find(t => t.nombre === 'Regular');
       const campesena = tiposPrograma.find(t => t.nombre === 'Campesena');
       setTiposProgramaIds({ regular: regular?._id || '', campesena: campesena?._id || '' });
     }
@@ -254,17 +265,34 @@ const CrearOferta = ({ onOfertaCreada }) => {
     });
   };
 
+  // ── Cálculo de fecha fin ──
   useEffect(() => {
-    if (modo !== 'regular') return;
-    const duracion = programaSeleccionado?.duracion_maxima || programaSeleccionado?.duracion_horas || programaSeleccionado?.horas || 0;
+    const duracion =
+      programaSeleccionado?.duracion_maxima ||
+      programaSeleccionado?.duracion_horas  ||
+      programaSeleccionado?.horas           ||
+      0;
     if (!duracion) return;
+
+    let horarioParaCalculo;
+    if (modo === 'regular') {
+      horarioParaCalculo = formData.horario;
+    } else if (modo === 'campesena') {
+      const instructores = formData.instructores || [];
+      horarioParaCalculo = instructores.find(i => i.horario?.dias?.length > 0)?.horario;
+      if (!horarioParaCalculo) return;
+    } else {
+      return;
+    }
+
     const nuevaFechaFin = calcularFechaFin(
       formData.fechas.inicio,
-      formData.horario.dias,
-      formData.horario.hora_inicio,
-      formData.horario.hora_fin,
+      horarioParaCalculo.dias,
+      horarioParaCalculo.hora_inicio,
+      horarioParaCalculo.hora_fin,
       duracion
     );
+
     if (nuevaFechaFin && nuevaFechaFin !== formData.fechas.fin) {
       setFormData(prev => ({ ...prev, fechas: { ...prev.fechas, fin: nuevaFechaFin } }));
     }
@@ -273,6 +301,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
     formData.horario.dias,
     formData.horario.hora_inicio,
     formData.horario.hora_fin,
+    formData.instructores,
     programaSeleccionado,
     modo
   ]);
@@ -303,15 +332,15 @@ const CrearOferta = ({ onOfertaCreada }) => {
 
   const crearNuevaEmpresa = async () => {
     try {
-      if (!nuevaEmpresa.nombre) { mostrarAlertaValidacion('El nombre de la empresa es obligatorio'); return; }
-      if (!nuevaEmpresa.nit) { mostrarAlertaValidacion('El NIT es obligatorio'); return; }
-      if (!nuevaEmpresa.fecha_creacion) { mostrarAlertaValidacion('La fecha de creación es obligatoria'); return; }
-      if (!nuevaEmpresa.direccion) { mostrarAlertaValidacion('La dirección es obligatoria'); return; }
-      if (!nuevaEmpresa.representante_legal.nombre_completo) { mostrarAlertaValidacion('El nombre del representante legal es obligatorio'); return; }
-      if (!nuevaEmpresa.contacto.nombre_completo) { mostrarAlertaValidacion('El nombre del contacto es obligatorio'); return; }
-      if (!nuevaEmpresa.contacto.telefono) { mostrarAlertaValidacion('El teléfono del contacto es obligatorio'); return; }
-      if (!nuevaEmpresa.contacto.correo) { mostrarAlertaValidacion('El correo del contacto es obligatorio'); return; }
-      if (!nuevaEmpresa.numero_empleados) { mostrarAlertaValidacion('El número de empleados es obligatorio'); return; }
+      if (!nuevaEmpresa.nombre)                             { mostrarAlertaValidacion('El nombre de la empresa es obligatorio'); return; }
+      if (!nuevaEmpresa.nit)                                { mostrarAlertaValidacion('El NIT es obligatorio'); return; }
+      if (!nuevaEmpresa.fecha_creacion)                     { mostrarAlertaValidacion('La fecha de creación es obligatoria'); return; }
+      if (!nuevaEmpresa.direccion)                          { mostrarAlertaValidacion('La dirección es obligatoria'); return; }
+      if (!nuevaEmpresa.representante_legal.nombre_completo){ mostrarAlertaValidacion('El nombre del representante legal es obligatorio'); return; }
+      if (!nuevaEmpresa.contacto.nombre_completo)           { mostrarAlertaValidacion('El nombre del contacto es obligatorio'); return; }
+      if (!nuevaEmpresa.contacto.telefono)                  { mostrarAlertaValidacion('El teléfono del contacto es obligatorio'); return; }
+      if (!nuevaEmpresa.contacto.correo)                    { mostrarAlertaValidacion('El correo del contacto es obligatorio'); return; }
+      if (!nuevaEmpresa.numero_empleados)                   { mostrarAlertaValidacion('El número de empleados es obligatorio'); return; }
 
       setLoading(true);
       const response = await api.post('/empresas', nuevaEmpresa);
@@ -362,24 +391,24 @@ const CrearOferta = ({ onOfertaCreada }) => {
   };
 
   const validarFormulario = () => {
-    if (!formData.programa_formacion) { mostrarAlertaValidacion('Seleccione un programa de formación'); return false; }
-    if (!formData.modalidad) { mostrarAlertaValidacion('Seleccione una modalidad'); return false; }
-    if (!formData.tipo_oferta) { mostrarAlertaValidacion('Seleccione un tipo de oferta'); return false; }
-    if (!formData.cupo_maximo) { mostrarAlertaValidacion('Ingrese el cupo máximo'); return false; }
-    if (!formData.ambiente.nombre) { mostrarAlertaValidacion('El nombre del ambiente es obligatorio'); return false; }
-    if (!formData.fechas.inicio) { mostrarAlertaValidacion('Ingrese la fecha de inicio'); return false; }
-    if (!formData.fechas.fin) { mostrarAlertaValidacion('La fecha fin no pudo calcularse. Verifique los días y el horario.'); return false; }
+    if (!formData.programa_formacion)       { mostrarAlertaValidacion('Seleccione un programa de formación'); return false; }
+    if (!formData.modalidad)                { mostrarAlertaValidacion('Seleccione una modalidad'); return false; }
+    if (!formData.tipo_oferta)              { mostrarAlertaValidacion('Seleccione un tipo de oferta'); return false; }
+    if (!formData.cupo_maximo)              { mostrarAlertaValidacion('Ingrese el cupo máximo'); return false; }
+    if (!formData.ambiente.nombre)          { mostrarAlertaValidacion('El nombre del ambiente es obligatorio'); return false; }
+    if (!formData.fechas.inicio)            { mostrarAlertaValidacion('Ingrese la fecha de inicio'); return false; }
+    if (!formData.fechas.fin)               { mostrarAlertaValidacion('La fecha fin no pudo calcularse. Verifique los días y el horario.'); return false; }
     const fechaInicio = new Date(formData.fechas.inicio);
-    const fechaFin = new Date(formData.fechas.fin);
+    const fechaFin    = new Date(formData.fechas.fin);
     if (fechaFin <= fechaInicio) {
       Swal.fire({ icon: 'warning', title: 'Fechas inválidas', text: 'La fecha de fin debe ser posterior a la fecha de inicio', timer: 3000, showConfirmButton: true });
       return false;
     }
-    if (!formData.ubicacion.municipio) { mostrarAlertaValidacion('Seleccione un municipio'); return false; }
-    if (!formData.ubicacion.direccion) { mostrarAlertaValidacion('Ingrese la dirección'); return false; }
-    if (!formData.empresa_solicitante) { mostrarAlertaValidacion('Seleccione una empresa solicitante'); return false; }
-    if (!formData.subsector_economico.nombre) { mostrarAlertaValidacion('Ingrese el subsector económico'); return false; }
-    if (!formData.convenio.nombre) { mostrarAlertaValidacion('El nombre del convenio es obligatorio'); return false; }
+    if (!formData.ubicacion.municipio)      { mostrarAlertaValidacion('Seleccione un municipio'); return false; }
+    if (!formData.ubicacion.direccion)      { mostrarAlertaValidacion('Ingrese la dirección'); return false; }
+    if (!formData.empresa_solicitante)      { mostrarAlertaValidacion('Seleccione una empresa solicitante'); return false; }
+    if (!formData.subsector_economico.nombre){ mostrarAlertaValidacion('Ingrese el subsector económico'); return false; }
+    if (!formData.convenio.nombre)          { mostrarAlertaValidacion('El nombre del convenio es obligatorio'); return false; }
     if (modo === 'regular' && formData.horario.dias.length === 0) { mostrarAlertaValidacion('Seleccione al menos un día'); return false; }
     return true;
   };
@@ -398,39 +427,46 @@ const CrearOferta = ({ onOfertaCreada }) => {
         return;
       }
 
+      // ── Normalizar datos del instructor ──
+      const tipoIdent = typeof formData.instructor?.tipoIdentificacion === 'object'
+        ? formData.instructor?.tipoIdentificacion?.nombre || ''
+        : formData.instructor?.tipoIdentificacion || '';
+
       const formDataToSend = new FormData();
-      formDataToSend.append('programa_formacion', formData.programa_formacion);
-      formDataToSend.append('modalidad', formData.modalidad);
-      formDataToSend.append('tipo_oferta', formData.tipo_oferta);
-      formDataToSend.append('cupo_maximo', formData.cupo_maximo);
-      formDataToSend.append('empresa_solicitante', formData.empresa_solicitante);
-      formDataToSend.append('programa_especial', formData.programa_especial || '');
-      formDataToSend.append('tipo_programa', tipoProgramaId);
-      formDataToSend.append('modo', modo);
-      formDataToSend.append('ambiente_nombre', formData.ambiente.nombre);
-      formDataToSend.append('fechas_inicio', formData.fechas.inicio);
-      formDataToSend.append('fechas_fin', formData.fechas.fin);
-      formDataToSend.append('ubicacion_departamento', formData.ubicacion.departamento);
-      formDataToSend.append('ubicacion_municipio', formData.ubicacion.municipio);
-      formDataToSend.append('ubicacion_direccion', formData.ubicacion.direccion);
-      formDataToSend.append('subsector_nombre', formData.subsector_economico.nombre);
-      formDataToSend.append('convenio_nombre', formData.convenio.nombre);
+      formDataToSend.append('programa_formacion',       formData.programa_formacion);
+      formDataToSend.append('modalidad',                formData.modalidad);
+      formDataToSend.append('tipo_oferta',              formData.tipo_oferta);
+      formDataToSend.append('cupo_maximo',              formData.cupo_maximo);
+      formDataToSend.append('empresa_solicitante',      formData.empresa_solicitante);
+      formDataToSend.append('programa_especial',        formData.programa_especial || '');
+      formDataToSend.append('tipo_programa',            tipoProgramaId);
+      formDataToSend.append('modo',                     modo);
+      formDataToSend.append('ambiente_nombre',          formData.ambiente.nombre);
+      formDataToSend.append('fechas_inicio',            formData.fechas.inicio);
+      formDataToSend.append('fechas_fin',               formData.fechas.fin);
+      formDataToSend.append('ubicacion_departamento',   formData.ubicacion.departamento);
+      formDataToSend.append('ubicacion_municipio',      formData.ubicacion.municipio);
+      formDataToSend.append('ubicacion_direccion',      formData.ubicacion.direccion);
+      formDataToSend.append('subsector_nombre',         formData.subsector_economico.nombre);
+      formDataToSend.append('convenio_nombre',          formData.convenio.nombre);
+      formDataToSend.append('duracion_meses',           '12');
+
+      // ── Datos del instructor (siempre, para ambos modos) ──
+      formDataToSend.append('instructor_nombre',              formData.instructor?.nombre              || '');
+      formDataToSend.append('instructor_apellido',            formData.instructor?.apellido            || '');
+      formDataToSend.append('instructor_correoElectronico',   formData.instructor?.correoElectronico   || '');
+      formDataToSend.append('instructor_tipoIdentificacion',  tipoIdent);
+      formDataToSend.append('instructor_numeroIdentificacion',formData.instructor?.numeroIdentificacion || '');
+      formDataToSend.append('instructor_celular',             formData.instructor?.celular             || '');
 
       if (modo === 'regular') {
         formDataToSend.append('horario_hora_inicio', formData.horario.hora_inicio);
-        formDataToSend.append('horario_hora_fin', formData.horario.hora_fin);
-        formDataToSend.append('horario_dias', JSON.stringify(formData.horario.dias));
+        formDataToSend.append('horario_hora_fin',    formData.horario.hora_fin);
+        formDataToSend.append('horario_dias',        JSON.stringify(formData.horario.dias));
       }
 
-      formDataToSend.append('duracion_meses', '12');
-      formDataToSend.append('instructor_nombre', formData.instructor?.nombre || '');
-      formDataToSend.append('instructor_apellido', formData.instructor?.apellido || '');
-      formDataToSend.append('instructor_correoElectronico', formData.instructor?.correoElectronico || '');
-      formDataToSend.append('instructor_tipoIdentificacion', typeof formData.instructor?.tipoIdentificacion === 'object' ? formData.instructor?.tipoIdentificacion?.nombre || '' : formData.instructor?.tipoIdentificacion || '');
-      formDataToSend.append('instructor_numeroIdentificacion', formData.instructor?.numeroIdentificacion || '');
-
       if (formData.firma_digital_pdf) formDataToSend.append('firma_digital_pdf', formData.firma_digital_pdf);
-      if (formData.carta_pdf) formDataToSend.append('carta_pdf', formData.carta_pdf);
+      if (formData.carta_pdf)         formDataToSend.append('carta_pdf',         formData.carta_pdf);
 
       if (modo === 'campesena' && formData.instructores) {
         formDataToSend.append('instructores', JSON.stringify(formData.instructores));
@@ -451,7 +487,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
     } catch (error) {
       Swal.close();
       let mensajeError = error.message;
-      if (error.response?.data?.errors) mensajeError = error.response.data.errors.join(', ');
+      if (error.response?.data?.errors)  mensajeError = error.response.data.errors.join(', ');
       else if (error.response?.data?.message) mensajeError = error.response.data.message;
       Swal.fire({ icon: 'error', title: 'Error', text: mensajeError, confirmButtonColor: '#e74c3c' });
     } finally {
@@ -462,6 +498,10 @@ const CrearOferta = ({ onOfertaCreada }) => {
   if (!modo) return <SeleccionarTipoOferta onSeleccionar={setModo} />;
 
   const duracionPrograma = programaSeleccionado?.duracion_maxima || programaSeleccionado?.duracion_horas || programaSeleccionado?.horas || null;
+
+  const horarioCampesenaActivo = modo === 'campesena'
+    ? (formData.instructores || []).find(i => i.horario?.dias?.length > 0)?.horario
+    : null;
 
   return (
     <>
@@ -475,6 +515,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
+
           {/* ── PROGRAMA DE FORMACIÓN ── */}
           <div style={styles.section}>
             <h3 style={styles.sectionTitle}>Programa de Formación</h3>
@@ -599,13 +640,11 @@ const CrearOferta = ({ onOfertaCreada }) => {
                     onChange={handleChange}
                     style={{
                       ...styles.input,
-                      ...(formData.fechas.fin && modo === 'regular' && duracionPrograma
-                        ? styles.inputCalculado
-                        : {})
+                      ...(formData.fechas.fin && duracionPrograma ? styles.inputCalculado : {})
                     }}
                     required
                   />
-                  {formData.fechas.fin && modo === 'regular' && duracionPrograma && (
+                  {formData.fechas.fin && duracionPrograma && (
                     <span style={styles.badgeCalculado}>✦ calculada</span>
                   )}
                 </div>
@@ -613,6 +652,12 @@ const CrearOferta = ({ onOfertaCreada }) => {
                   <small style={styles.fechaHint}>Selecciona días en el horario para calcular la fecha fin</small>
                 )}
                 {modo === 'regular' && duracionPrograma && !formData.fechas.fin && formData.fechas.inicio && formData.horario.dias.length > 0 && (
+                  <small style={{ ...styles.fechaHint, color: T.accent }}>Calculando...</small>
+                )}
+                {modo === 'campesena' && duracionPrograma && !formData.fechas.fin && formData.fechas.inicio && !horarioCampesenaActivo && (
+                  <small style={styles.fechaHint}>Selecciona días en el horario del instructor para calcular la fecha fin</small>
+                )}
+                {modo === 'campesena' && duracionPrograma && !formData.fechas.fin && formData.fechas.inicio && horarioCampesenaActivo && (
                   <small style={{ ...styles.fechaHint, color: T.accent }}>Calculando...</small>
                 )}
               </div>
@@ -625,6 +670,17 @@ const CrearOferta = ({ onOfertaCreada }) => {
                   <strong>{duracionPrograma} horas</strong> distribuidas en{' '}
                   <strong>{formData.horario.dias.length} día(s)/semana</strong> —{' '}
                   {formData.horario.hora_inicio} a {formData.horario.hora_fin}
+                </span>
+              </div>
+            )}
+
+            {modo === 'campesena' && formData.fechas.inicio && formData.fechas.fin && duracionPrograma && horarioCampesenaActivo && (
+              <div style={styles.duracionResumen}>
+                <span>📅</span>
+                <span>
+                  <strong>{duracionPrograma} horas</strong> distribuidas en{' '}
+                  <strong>{horarioCampesenaActivo.dias.length} día(s)/semana</strong> —{' '}
+                  {horarioCampesenaActivo.hora_inicio} a {horarioCampesenaActivo.hora_fin}
                 </span>
               </div>
             )}
@@ -670,11 +726,36 @@ const CrearOferta = ({ onOfertaCreada }) => {
             <div style={styles.row}>
               <div style={styles.half}>
                 <label style={styles.label}>Tipo de documento</label>
-                <input type="text" value={typeof formData.instructor.tipoIdentificacion === 'object' ? formData.instructor.tipoIdentificacion?.nombre || '' : formData.instructor.tipoIdentificacion || ''} style={styles.input} readOnly />
+                <input
+                  type="text"
+                  value={
+                    typeof formData.instructor.tipoIdentificacion === 'object'
+                      ? formData.instructor.tipoIdentificacion?.nombre || ''
+                      : formData.instructor.tipoIdentificacion || ''
+                  }
+                  style={styles.input}
+                  readOnly
+                />
               </div>
               <div style={styles.half}>
                 <label style={styles.label}>Documento</label>
                 <input type="text" value={formData.instructor.numeroIdentificacion || ''} style={styles.input} readOnly />
+              </div>
+            </div>
+            {/* Celular — editable si no viene del perfil */}
+            <div style={styles.row}>
+              <div style={styles.half}>
+                <label style={styles.label}>Celular</label>
+                <input
+                  type="text"
+                  value={formData.instructor.celular || ''}
+                  onChange={e => setFormData(prev => ({
+                    ...prev,
+                    instructor: { ...prev.instructor, celular: e.target.value }
+                  }))}
+                  style={styles.input}
+                  placeholder="Ej: 3001234567"
+                />
               </div>
             </div>
           </div>
@@ -817,7 +898,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
 
           {/* ── FORMULARIO CAMPESENA ── */}
           {modo === 'campesena' && (
-            <FormularioCampesenaCompleto formData={formData} setFormData={setFormData} />
+            <FormularioCampesenaCompleto formData={formData} setFormData={setFormData} instructorLogueado={formData.instructor} />
           )}
 
           {/* ── ARCHIVOS PDF ── */}
@@ -865,7 +946,7 @@ const CrearOferta = ({ onOfertaCreada }) => {
   );
 };
 
-// ===== ESTILOS MEJORADOS (con tokens) =====
+// ===== ESTILOS =====
 const styles = {
   container: {
     maxWidth: '920px',
@@ -907,7 +988,6 @@ const styles = {
     transition: 'all 0.2s ease',
     boxShadow: T.shadow.sm,
   },
-  // Autocomplete
   autocompleteWrapper: { position: 'relative', width: '100%' },
   autocompleteInput: {
     padding: '14px 44px 14px 16px',
@@ -970,7 +1050,6 @@ const styles = {
     color: T.muted,
     zIndex: 1000,
   },
-  // Secciones
   section: {
     backgroundColor: T.white,
     padding: '28px',
@@ -1136,13 +1215,10 @@ const styles = {
   fileInput: { fontSize: '14px', fontFamily: 'inherit' },
 };
 
-// CSS global para fuentes y efectos hover
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
 
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
 
   input:focus, select:focus, textarea:focus {
     border-color: ${T.borderFocus} !important;
@@ -1150,17 +1226,8 @@ const CSS = `
     outline: none;
   }
 
-  button {
-    transition: transform 0.1s ease, background 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  button:active {
-    transform: scale(0.98);
-  }
-
-  .fc-root button:active {
-    transform: scale(0.98);
-  }
+  button { transition: transform 0.1s ease, background 0.2s ease, box-shadow 0.2s ease; }
+  button:active { transform: scale(0.98); }
 `;
 
 export default CrearOferta;
